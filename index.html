@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MiFinanzas — Ingresos y Gastos</title>
+    <meta name="description" content="Gestiona tus ingresos y gastos personales de forma sencilla y visual." />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>" />
+</head>
+
+<body>
+
+    <!-- SIDEBAR OVERLAY (mobile) -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <div class="app">
+        <!-- ===== SIDEBAR ===== -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="logo">₿</div>
+                <h1>MiFinanzas</h1>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-page="dashboard" id="nav-dashboard">
+                    <span class="nav-icon">📊</span> Dashboard
+                </button>
+                <button class="nav-item" data-page="transactions" id="nav-transactions">
+                    <span class="nav-icon">💸</span> Transacciones
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="avatar">JM</div>
+                <div class="user-info">
+                    <div class="user-name">Jonathan M.</div>
+                    <div class="user-email">Uso personal</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ===== MAIN CONTENT ===== -->
+        <main class="main">
+            <!-- TOP BAR -->
+            <header class="topbar">
+                <div class="topbar-left-group">
+                    <button class="hamburger" id="hamburgerBtn">☰</button>
+                    <div class="topbar-left">
+                        <h2 id="pageTitle">Dashboard</h2>
+                        <p id="pageSubtitle"></p>
+                    </div>
+                </div>
+                <div class="topbar-right">
+                    <button class="btn btn-ghost" id="monthFilterBtn">📅 <span id="monthFilterLabel">Este
+                            mes</span></button>
+                    <button class="btn btn-primary" id="addTxnBtn">+ Nueva transacción</button>
+                </div>
+            </header>
+
+            <div class="content">
+                <!-- ===== PAGE: DASHBOARD ===== -->
+                <div class="page active" id="page-dashboard">
+                    <!-- Summary Cards -->
+                    <div class="summary-grid">
+                        <div class="summary-card income">
+                            <div class="card-header">
+                                <span class="card-label">Ingresos</span>
+                                <div class="card-icon">↑</div>
+                            </div>
+                            <div class="card-body">
+                                <div class="card-amount" id="totalIncome">€0,00</div>
+                                <span class="card-change up" id="incomeChange"></span>
+                            </div>
+                        </div>
+                        <div class="summary-card expense">
+                            <div class="card-header">
+                                <span class="card-label">Gastos</span>
+                                <div class="card-icon">↓</div>
+                            </div>
+                            <div class="card-body">
+                                <div class="card-amount" id="totalExpense">€0,00</div>
+                                <span class="card-change down" id="expenseChange"></span>
+                            </div>
+                        </div>
+                        <div class="summary-card balance">
+                            <div class="card-header">
+                                <span class="card-label">Balance</span>
+                                <div class="card-icon">⚖</div>
+                            </div>
+                            <div class="card-body">
+                                <div class="card-amount" id="totalBalance">€0,00</div>
+                                <span class="card-change" id="balanceChange"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chart -->
+                    <div class="chart-section">
+                        <div class="section-header">
+                            <h3 class="section-title">Ingresos vs Gastos</h3>
+                            <div class="chart-tabs">
+                                <button class="chart-tab" data-range="6">6 meses</button>
+                                <button class="chart-tab active" data-range="12">12 meses</button>
+                            </div>
+                        </div>
+                        <div class="chart-placeholder">
+                            <div class="chart-bars" id="chartBars">
+                                <!-- populated by JS -->
+                            </div>
+                        </div>
+                        <div class="chart-legend">
+                            <span><span class="legend-dot" style="background:var(--green);"></span> Ingresos</span>
+                            <span><span class="legend-dot" style="background:var(--red);"></span> Gastos</span>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Grid -->
+                    <div class="bottom-grid">
+                        <!-- Recent Transactions -->
+                        <div class="transactions-section">
+                            <div class="section-header">
+                                <h3 class="section-title">Últimas transacciones</h3>
+                                <button class="btn btn-ghost btn-sm" id="viewAllTxnBtn">Ver todas →</button>
+                            </div>
+                            <div class="txn-list" id="recentTxnList">
+                                <!-- populated by JS -->
+                            </div>
+                        </div>
+
+                        <!-- Categories -->
+                        <div class="categories-section">
+                            <div class="section-header">
+                                <h3 class="section-title">Gastos por categoría</h3>
+                            </div>
+                            <div class="category-list" id="categoryBreakdown">
+                                <!-- populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== PAGE: ALL TRANSACTIONS ===== -->
+                <div class="page" id="page-transactions">
+                    <div class="full-txn-section">
+                        <div class="section-header">
+                            <h3 class="section-title">Todas las transacciones</h3>
+                        </div>
+                        <div class="filters-bar">
+                            <select class="filter-select" id="filterType">
+                                <option value="all">Todos los tipos</option>
+                                <option value="income">Solo ingresos</option>
+                                <option value="expense">Solo gastos</option>
+                            </select>
+                            <select class="filter-select" id="filterCategory">
+                                <option value="all">Todas las categorías</option>
+                            </select>
+                            <select class="filter-select" id="filterSort">
+                                <option value="date-desc">Más recientes</option>
+                                <option value="date-asc">Más antiguos</option>
+                                <option value="amount-desc">Mayor importe</option>
+                                <option value="amount-asc">Menor importe</option>
+                            </select>
+                        </div>
+                        <div class="txn-list" id="allTxnList">
+                            <!-- populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ===== MOBILE BOTTOM NAV ===== -->
+    <nav class="mobile-nav">
+        <div class="mobile-nav-items">
+            <button class="mobile-nav-item active" data-page="dashboard">
+                <span class="m-icon">📊</span>
+                <span>Inicio</span>
+            </button>
+            <button class="mobile-nav-item" data-page="transactions">
+                <span class="m-icon">💸</span>
+                <span>Movimientos</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- MOBILE FAB -->
+    <button class="mobile-fab" id="mobileFab">+</button>
+
+    <!-- ===== MODAL: NUEVA TRANSACCIÓN ===== -->
+    <div class="modal-overlay" id="txnModal">
+        <div class="modal">
+            <h3 class="modal-title" id="modalTitle">Nueva Transacción</h3>
+            <div class="type-toggle">
+                <button class="type-btn expense-type active" id="typeExpense">Gasto</button>
+                <button class="type-btn income-type" id="typeIncome">Ingreso</button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Cantidad (€)</label>
+                <input class="form-input amount-input" type="number" step="0.01" min="0" id="txnAmount"
+                    placeholder="0,00" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Categoría</label>
+                <div class="category-pills" id="categoryPills">
+                    <!-- populated by JS -->
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Descripción</label>
+                <input class="form-input" type="text" id="txnDescription" placeholder="Ej: Compra semanal..." />
+            </div>
+            <div class="form-group">
+                <label class="form-label">Fecha</label>
+                <input class="form-input" type="date" id="txnDate" />
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-outline" id="modalCancelBtn">Cancelar</button>
+                <button class="btn btn-primary" id="modalSaveBtn">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== CONFIRM DIALOG ===== -->
+    <div class="confirm-overlay" id="confirmDialog">
+        <div class="confirm-dialog">
+            <h4>¿Eliminar transacción?</h4>
+            <p>Esta acción no se puede deshacer.</p>
+            <div class="confirm-actions">
+                <button class="btn btn-outline" id="confirmCancel">Cancelar</button>
+                <button class="btn btn-danger" id="confirmDelete">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST -->
+    <div class="toast" id="toast"></div>
+
+    <!-- SCRIPTS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
