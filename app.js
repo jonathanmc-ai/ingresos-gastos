@@ -62,6 +62,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!userProfile.can_create) {
             const addBtn = document.querySelector('.btn-primary[onclick="openModal()"]');
             if (addBtn) addBtn.style.display = 'none';
+            // También ocultamos el botón de crear categoría nueva
+            const addCatBtn = document.getElementById('btn-new-category');
+            if (addCatBtn) addCatBtn.style.display = 'none';
+        } else {
+            // Mostrar si tiene permiso
+            const addCatBtn = document.getElementById('btn-new-category');
+            if (addCatBtn) addCatBtn.style.display = 'inline-block';
         }
 
         // --- MODO AUDITORÍA DE SUPERADMIN ---
@@ -205,9 +212,74 @@ function renderRecentTransactions() {
         </div>
       </div>
     `;
-        listContainer.insertAdjacentHTML('beforeend', html);
     });
 }
+
+// 4.b Renderizar Transacciones Completas (Vista Transacciones)
+function renderFullTransactions(filter = 'all') {
+    const tbody = document.getElementById('fullTransactionsList');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    // Aplicar filtro de tipo (all, income, expense)
+    const filteredTxns = transactions.filter(t => {
+        if (filter === 'all') return true;
+        return t.type === filter;
+    });
+
+    if (filteredTxns.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 24px; color: var(--text-muted);">No hay transacciones registradas.</td></tr>`;
+        return;
+    }
+
+    filteredTxns.forEach(t => {
+        const isIncome = t.type === 'income';
+        const amountClass = isIncome ? 'amount-positive' : '';
+        const prefix = isIncome ? '+' : '';
+        const catName = t.categories ? t.categories.name : 'Otra';
+        const catColor = t.categories ? t.categories.color : '#eab308';
+        const catIcon = t.categories ? t.categories.icon : '📌';
+
+        // Formatear fecha
+        const d = new Date(t.date);
+        const dateStr = d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+
+        const html = `
+      <tr>
+        <td style="padding: 16px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">${dateStr}</td>
+        <td style="padding: 16px; border-bottom: 1px solid var(--border); font-weight: 500;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="background:${catColor}20; color:${catColor}; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+              ${catIcon}
+            </div>
+            ${t.description || 'Sin descripción'}
+          </div>
+        </td>
+        <td style="padding: 16px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">${catName}</td>
+        <td style="padding: 16px; border-bottom: 1px solid var(--border); text-align: right; font-weight: 600;" class="${amountClass}">
+          ${prefix}€${parseFloat(t.amount).toFixed(2).replace('.', ',')}
+        </td>
+      </tr>
+    `;
+        tbody.insertAdjacentHTML('beforeend', html);
+    });
+}
+
+// 4.c Filtros de Transacciones Completas
+window.setTxnFilter = function (filter) {
+    // Quitar activo a todos los botones
+    document.getElementById('filterAllTxn').classList.remove('active');
+    document.getElementById('filterIncomeTxn').classList.remove('active');
+    document.getElementById('filterExpenseTxn').classList.remove('active');
+
+    // Añadir activo al seleccionado
+    if (filter === 'all') document.getElementById('filterAllTxn').classList.add('active');
+    if (filter === 'income') document.getElementById('filterIncomeTxn').classList.add('active');
+    if (filter === 'expense') document.getElementById('filterExpenseTxn').classList.add('active');
+
+    renderFullTransactions(filter);
+};
 
 // 5. Renderizar Progreso por Categorías (Solo Gastos)
 function renderCategoryProgress(totalExpense) {
@@ -353,8 +425,10 @@ async function saveTransaction() {
     document.querySelector('.amount-input').value = '€0,00';
     document.querySelector('.form-input[placeholder="Ej: Compra semanal..."]').value = '';
 
-    await fetchTransactions();
-    updateDashboardUI();
+    fetchTransactions().then(() => {
+        updateDashboardUI();
+        renderFullTransactions(); // update new view as well
+    });
 }
 
 // Hookeando las funciones globales del HTML para el Modal
@@ -391,6 +465,255 @@ window.selectPill = function (el) {
     document.querySelectorAll('.cat-pill:not(.selected)').forEach(p => {
         p.style = '';
     });
+};
+
+// ============================================
+// GESTIÓN DE CATEGORÍAS (VISTA)
+// ============================================
+
+window.renderCategoriesView = function () {
+    const grid = document.getElementById('fullCategoriesGrid');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+
+    if (categories.length === 0) {
+        grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 24px; color: var(--text-muted);">No hay categorías creadas.</div>';
+        return;
+    }
+
+    categories.forEach(cat => {
+        const typeLabel = cat.type === 'income' ? 'Ingreso' : 'Gasto';
+        const typeColor = cat.type === 'income' ? 'var(--green)' : 'var(--orange)';
+        const typeBg = cat.type === 'income' ? 'var(--green-bg)' : 'var(--orange-bg)';
+
+        const html = `
+            <div class="card" style="display: flex; align-items: center; gap: 16px; padding: 16px;">
+                <div style="background:${cat.color}20; color:${cat.color}; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                    ${cat.icon}
+                </div>
+                <div>
+                    <h4 style="font-weight: 600; font-size: 16px; margin-bottom: 4px;">${cat.name}</h4>
+                    <span style="background:${typeBg}; color:${typeColor}; font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 500;">
+                        ${typeLabel}
+                    </span>
+                </div>
+            </div>
+        `;
+        grid.insertAdjacentHTML('beforeend', html);
+    });
+};
+
+window.openCategoryModal = function () {
+    document.getElementById('categoryModal').classList.add('active');
+    document.getElementById('catNameInput').value = '';
+    document.getElementById('catIconInput').value = '🏷️';
+    document.getElementById('catColorInput').value = '#3b82f6';
+};
+
+window.closeCategoryModal = function () {
+    document.getElementById('categoryModal').classList.remove('active');
+};
+
+window.setCatType = function (el, type) {
+    document.querySelectorAll('#categoryModal .type-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+};
+
+window.saveCategory = async function () {
+    if (!userProfile || !userProfile.can_create) {
+        alert("No tienes permisos para crear categorías.");
+        return;
+    }
+
+    const name = document.getElementById('catNameInput').value.trim();
+    const icon = document.getElementById('catIconInput').value.trim();
+    const color = document.getElementById('catColorInput').value;
+    const isIncome = document.getElementById('btn-cat-income').classList.contains('active');
+    const type = isIncome ? 'income' : 'expense';
+
+    if (!name || name.length < 2) {
+        alert("El nombre de la categoría es obligatorio y debe tener al menos 2 letras.");
+        return;
+    }
+
+    const newCategory = {
+        name,
+        icon: icon || '🏷️',
+        color,
+        type
+        // company_id se inserta automáticamente por base de datos o manejado por trigger?
+        // Actualmente RLS exige que en el insert el user pase el company_id, 
+        // a menos que tengamos un trigger, mejor pasarlo explícitamente.
+    };
+
+    // Obtenemos el company_id activo (el del user profile o del audit)
+    const activeCompanyId = (userProfile.role === 'superadmin' && auditCompanyId) ? auditCompanyId : userProfile.company_id;
+    newCategory.company_id = activeCompanyId;
+
+    const { data, error } = await supabaseClient
+        .from('categories')
+        .insert([newCategory])
+        .select();
+
+    if (error) {
+        console.error('Error saving category:', error);
+        alert('Hubo un error al guardar la categoría.');
+        return;
+    }
+
+    window.closeCategoryModal();
+    // Recargar datos y vistas
+    await fetchCategories();
+    renderCategoriesView();
+};
+
+// Cerrar modal categoria pinchando fuera
+document.getElementById('categoryModal')?.addEventListener('click', function (e) {
+    if (e.target === this) window.closeCategoryModal();
+});
+
+// ============================================
+// INFORMES Y ANALÍTICAS (VISTA)
+// ============================================
+
+window.renderReportsView = function () {
+    let totalIncome = 0;
+    let totalExpense = 0;
+    const expensesList = [];
+
+    // Calcular totales históricos
+    transactions.forEach(t => {
+        const amount = parseFloat(t.amount);
+        if (t.type === 'income') {
+            totalIncome += amount;
+        } else {
+            totalExpense += amount;
+            expensesList.push(t);
+        }
+    });
+
+    const balance = totalIncome - totalExpense;
+
+    // Actualizar tarjetas de Totales
+    const incomeEl = document.getElementById('repTotalIncome');
+    if (incomeEl) incomeEl.textContent = `€${totalIncome.toFixed(2).replace('.', ',')}`;
+
+    const expenseEl = document.getElementById('repTotalExpense');
+    if (expenseEl) expenseEl.textContent = `€${totalExpense.toFixed(2).replace('.', ',')}`;
+
+    const balanceEl = document.getElementById('repTotalBalance');
+    const balanceCard = document.getElementById('repBalanceCard');
+
+    if (balanceEl && balanceCard) {
+        // Formatear balance
+        const prefix = balance > 0 ? '+' : '';
+        balanceEl.textContent = `${prefix}€${balance.toFixed(2).replace('.', ',')}`;
+        // Cambiar color sutil si es negativo
+        if (balance < 0) {
+            balanceEl.style.color = 'var(--red)';
+        } else {
+            balanceEl.style.color = 'var(--text-primary)';
+        }
+    }
+
+    // Top 3 Gastos Históricos
+    const topExpensesContainer = document.getElementById('repTopExpensesList');
+    if (!topExpensesContainer) return;
+
+    topExpensesContainer.innerHTML = '';
+
+    // Ordenar gastos de mayor a menor y coger los 3 primeros
+    expensesList.sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
+    const top3 = expensesList.slice(0, 3);
+
+    if (top3.length === 0) {
+        topExpensesContainer.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 16px;">No hay gastos registrados todavía.</p>';
+        return;
+    }
+
+    top3.forEach((t, i) => {
+        const catName = t.categories ? t.categories.name : 'Otra';
+        const catColor = t.categories ? t.categories.color : '#eab308';
+        const catIcon = t.categories ? t.categories.icon : '📌';
+        const d = new Date(t.date);
+        const dateStr = d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+
+        // Medalla para el Top 1, 2 y 3
+        const medals = ['🥇', '🥈', '🥉'];
+        const medal = medals[i];
+
+        const html = `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; border-bottom: 1px solid var(--border); ${i === 2 ? 'border-bottom: none;' : ''}">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="font-size: 24px; width: 32px; text-align: center;">${medal}</div>
+                    <div style="background:${catColor}20; color:${catColor}; width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px;">
+                        ${catIcon}
+                    </div>
+                    <div>
+                        <div style="font-weight: 500; color: var(--text-primary);">${t.description || 'Sin descripción'}</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">${catName} · ${dateStr}</div>
+                    </div>
+                </div>
+                <div style="font-weight: 600; font-size: 16px; color: var(--red);">
+                    -€${parseFloat(t.amount).toFixed(2).replace('.', ',')}
+                </div>
+            </div>
+        `;
+        topExpensesContainer.insertAdjacentHTML('beforeend', html);
+    });
+
+};
+
+// ============================================
+// AJUSTES Y PERFIL (VISTA)
+// ============================================
+
+window.renderSettingsView = function () {
+    const avatarEl = document.getElementById('setAvatar');
+    const nameEl = document.getElementById('setUserName');
+    const emailEl = document.getElementById('setUserEmail');
+    const roleEl = document.getElementById('setUserRole');
+
+    if (!avatarEl || !nameEl || !emailEl || !roleEl) return;
+
+    if (!userProfile) {
+        nameEl.textContent = 'Cargando perfil...';
+        return;
+    }
+
+    // Set Name & Avatar chars
+    const fullName = userProfile.full_name || 'Usuario Anónimo';
+    nameEl.textContent = fullName;
+
+    // Configurar iniciales para Avatar
+    let initials = 'UA';
+    const nameParts = fullName.split(' ');
+    if (nameParts.length > 1) {
+        initials = nameParts[0].charAt(0).toUpperCase() + nameParts[1].charAt(0).toUpperCase();
+    } else if (nameParts.length === 1 && nameParts[0] !== '') {
+        initials = nameParts[0].substring(0, 2).toUpperCase();
+    }
+    avatarEl.textContent = initials;
+
+    // Email dummy, en auth Supabase está en getUser().email pero
+    // userProfile solo tiene refs. 
+    // Mostraremos un placeholder si no lo consultamos de Supabase Auth
+    emailEl.textContent = 'Miembro de ' + (userProfile.companies ? userProfile.companies.name : 'Empresa');
+
+    // Mapeo Roles de inglés a Castellano
+    let roleText = 'Usuario';
+    switch (userProfile.role) {
+        case 'superadmin': roleText = 'Super Administrador'; break;
+        case 'company_admin': roleText = 'Administrador de Empresa'; break;
+        case 'company_user': roleText = 'Empleado'; break;
+    }
+
+    if (auditCompanyId) {
+        roleText += ' (Auditor)';
+    }
+
+    roleEl.textContent = roleText;
 };
 
 // 12. Salir del Modo Auditoría

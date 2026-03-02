@@ -1379,54 +1379,172 @@
 
         <!-- TRANSACTIONS VIEW -->
         <div id="view-transactions" class="view-section">
-          <div class="transactions-section"
-            style="min-height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center;">
-            <div class="txn-icon"
-              style="background:var(--bg-secondary);color:var(--text-muted);font-size:32px;width:72px;height:72px;margin-bottom:16px;">
-              💸</div>
-            <h3 style="font-size:20px;font-weight:700;margin-bottom:8px;">Transacciones</h3>
-            <p style="color:var(--text-muted);font-size:14px;">Aquí verás el historial completo de tus ingresos y
-              gastos.<br>Esta vista se implementará en la siguiente fase.</p>
+
+          <div class="header-action"
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <div>
+              <h2 style="font-size: 20px; font-weight: 700;">Todas las Transacciones</h2>
+              <p style="color: var(--text-muted); font-size: 14px; margin-top: 4px;">Historial completo de movimientos
+              </p>
+            </div>
           </div>
+
+          <!-- Filtros de transacciones -->
+          <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+            <button class="btn btn-ghost active" id="filterAllTxn" onclick="setTxnFilter('all')"
+              style="background: var(--bg-card);">Todas</button>
+            <button class="btn btn-ghost" id="filterIncomeTxn" onclick="setTxnFilter('income')">Ingresos</button>
+            <button class="btn btn-ghost" id="filterExpenseTxn" onclick="setTxnFilter('expense')">Gastos</button>
+          </div>
+
+          <div class="transactions-section">
+            <div class="table-responsive" style="overflow-x: auto;">
+              <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                <thead>
+                  <tr>
+                    <th
+                      style="padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 600; font-size: 13px;">
+                      Fecha</th>
+                    <th
+                      style="padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 600; font-size: 13px;">
+                      Descripción</th>
+                    <th
+                      style="padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 600; font-size: 13px;">
+                      Categoría</th>
+                    <th
+                      style="padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 600; font-size: 13px; text-align: right;">
+                      Monto</th>
+                  </tr>
+                </thead>
+                <tbody id="fullTransactionsList">
+                  <!-- Data injected by JS -->
+                  <tr>
+                    <td colspan="4" style="text-align: center; padding: 24px; color: var(--text-muted);">Cargando
+                      historial...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
 
         <!-- REPORTS VIEW -->
         <div id="view-reports" class="view-section">
-          <div class="chart-section"
-            style="min-height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center;">
-            <div class="txn-icon"
-              style="background:var(--bg-secondary);color:var(--text-muted);font-size:32px;width:72px;height:72px;margin-bottom:16px;">
-              📈</div>
-            <h3 style="font-size:20px;font-weight:700;margin-bottom:8px;">Informes y Analíticas</h3>
-            <p style="color:var(--text-muted);font-size:14px;">Aquí verás gráficos detallados y reportes
-              mensuales.<br>Esta vista se implementará en la siguiente fase.</p>
+
+          <div class="header-action"
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <div>
+              <h2 style="font-size: 20px; font-weight: 700;">Informes y Analíticas</h2>
+              <p style="color: var(--text-muted); font-size: 14px; margin-top: 4px;">Balance global y estadísticas
+                destacadas</p>
+            </div>
           </div>
+
+          <!-- Resumen de Totales Históricos -->
+          <div class="summary-grid" style="margin-bottom: 24px;">
+            <div class="summary-card income">
+              <div class="card-header">
+                <span class="card-label">Ingresos Históricos</span>
+                <div class="card-icon">↑</div>
+              </div>
+              <div class="card-body">
+                <div class="card-amount" id="repTotalIncome">€0,00</div>
+              </div>
+            </div>
+            <div class="summary-card expense">
+              <div class="card-header">
+                <span class="card-label">Gastos Históricos</span>
+                <div class="card-icon">↓</div>
+              </div>
+              <div class="card-body">
+                <div class="card-amount" id="repTotalExpense">€0,00</div>
+              </div>
+            </div>
+            <div class="summary-card balance" id="repBalanceCard">
+              <div class="card-header">
+                <span class="card-label">Balance Total</span>
+                <div class="card-icon">💰</div>
+              </div>
+              <div class="card-body">
+                <div class="card-amount" id="repTotalBalance">€0,00</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Gastos -->
+          <div class="card">
+            <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">Top 3 Gastos Históricos</h3>
+            <div id="repTopExpensesList">
+              <!-- JS Injected -->
+              <p style="color: var(--text-muted); text-align: center; padding: 16px;">Calculando...</p>
+            </div>
+          </div>
+
         </div>
 
         <!-- CATEGORIES VIEW -->
         <div id="view-categories" class="view-section">
-          <div class="categories-section"
-            style="min-height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center;">
-            <div class="txn-icon"
-              style="background:var(--bg-secondary);color:var(--text-muted);font-size:32px;width:72px;height:72px;margin-bottom:16px;">
-              🏷️</div>
-            <h3 style="font-size:20px;font-weight:700;margin-bottom:8px;">Gestión de Categorías</h3>
-            <p style="color:var(--text-muted);font-size:14px;">Aquí podrás crear, editar y eliminar categorías
-              personalizadas.<br>Esta vista se implementará en la siguiente fase.</p>
+
+          <div class="header-action"
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <div>
+              <h2 style="font-size: 20px; font-weight: 700;">Gestión de Categorías</h2>
+              <p style="color: var(--text-muted); font-size: 14px; margin-top: 4px;">Edita o añade nuevas etiquetas para
+                tus transacciones</p>
+            </div>
+            <button class="btn btn-primary" id="btn-new-category" onclick="openCategoryModal()" style="display: none;">+
+              Nueva Categoría</button>
           </div>
+
+          <div class="categories-grid" id="fullCategoriesGrid"
+            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px;">
+            <!-- Categorías cargadas dinámicamente -->
+            <div style="grid-column: 1 / -1; text-align: center; padding: 24px; color: var(--text-muted);">Cargando
+              categorías...</div>
+          </div>
+
         </div>
 
         <!-- SETTINGS VIEW -->
         <div id="view-settings" class="view-section">
-          <div class="transactions-section"
-            style="min-height: 400px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center;">
-            <div class="txn-icon"
-              style="background:var(--bg-secondary);color:var(--text-muted);font-size:32px;width:72px;height:72px;margin-bottom:16px;">
-              ⚙️</div>
-            <h3 style="font-size:20px;font-weight:700;margin-bottom:8px;">Ajustes de cuenta</h3>
-            <p style="color:var(--text-muted);font-size:14px;">Opciones de perfil, preferencias generales y cierre de
-              sesión.<br>Esta vista se implementará en la siguiente fase.</p>
+
+          <div class="header-action"
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+            <div>
+              <h2 style="font-size: 20px; font-weight: 700;">Ajustes de Cuenta</h2>
+              <p style="color: var(--text-muted); font-size: 14px; margin-top: 4px;">Gestiona tu perfil y preferencias
+              </p>
+            </div>
           </div>
+
+          <div class="card" style="max-width: 600px; margin: 0 auto;">
+            <div
+              style="display: flex; align-items: center; gap: 24px; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid var(--border);">
+              <div class="avatar" id="setAvatar" style="width: 80px; height: 80px; font-size: 28px;">JM</div>
+              <div>
+                <h3 id="setUserName" style="font-size: 24px; font-weight: 700; margin-bottom: 4px;">Cargando...</h3>
+                <p id="setUserEmail" style="color: var(--text-muted); font-size: 15px; margin-bottom: 8px;">Cargando...
+                </p>
+                <span id="setUserRole"
+                  style="background: var(--purple-bg); color: var(--purple); font-size: 12px; padding: 4px 10px; border-radius: 12px; font-weight: 600;">Cargando...</span>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 24px;">
+              <h4 style="font-size: 16px; margin-bottom: 16px; font-weight: 600;">Opciones de Sesión</h4>
+              <button class="btn btn-outline"
+                style="width: 100%; justify-content: center; color: var(--red); border-color: var(--red-bg); background: var(--red-bg);"
+                onclick="document.getElementById('logoutBtn').click()">
+                Cerrar Sesión Segura
+              </button>
+            </div>
+
+            <div style="text-align: center; margin-top: 32px;">
+              <p style="color: var(--text-muted); font-size: 13px;">MiFinanzas App v1.0.0 &copy; 2026</p>
+            </div>
+          </div>
+
         </div>
 
       </div>
@@ -1496,6 +1614,43 @@
       </div>
     </div>
   </div>
+  </div>
+
+  <!-- MODAL: NUEVA CATEGORÍA -->
+  <div class="modal-overlay" id="categoryModal">
+    <div class="modal">
+      <h3 class="modal-title">Nueva Categoría</h3>
+
+      <div class="type-toggle">
+        <button class="type-btn active" id="btn-cat-expense" onclick="setCatType(this,'expense')">Gasto</button>
+        <button class="type-btn" id="btn-cat-income" onclick="setCatType(this,'income')">Ingreso</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Nombre de la Categoría</label>
+        <input class="form-input" id="catNameInput" type="text" placeholder="Ej: Suscripciones, Comida, etc."
+          autocomplete="off" />
+      </div>
+
+      <div style="display: flex; gap: 16px;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Icono (Emoji)</label>
+          <input class="form-input" id="catIconInput" type="text" value="🏷️"
+            style="text-align: center; font-size: 20px;" />
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Color</label>
+          <input class="form-input" id="catColorInput" type="color" value="#3b82f6"
+            style="height: 46px; padding: 4px; cursor: pointer;" />
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-outline" id="btn-cancel-cat-modal" onclick="closeCategoryModal()">Cancelar</button>
+        <button class="btn btn-primary" id="btn-save-cat-modal" onclick="saveCategory()">Crear</button>
+      </div>
+    </div>
+  </div>
 
   <script>
     function switchView(viewId, el, isMobile = false) {
@@ -1542,9 +1697,18 @@
         toggleSidebar();
       }
 
-      // Update UI if we switch back to dashboard
+      // Update UI if we switch back to dashboard or other data views
       if (viewId === 'dashboard' && typeof updateDashboardUI === 'function') {
         updateDashboardUI();
+      } else if (viewId === 'categories' && typeof renderCategoriesView === 'function') {
+        renderCategoriesView();
+      } else if (viewId === 'reports' && typeof renderReportsView === 'function') {
+        renderReportsView();
+      } else if (viewId === 'settings' && typeof renderSettingsView === 'function') {
+        renderSettingsView();
+      } else if (viewId === 'transactions' && typeof renderFullTransactions === 'function') {
+        // Por si acaso no se renderizó en la primera carga
+        renderFullTransactions();
       }
     }
 
