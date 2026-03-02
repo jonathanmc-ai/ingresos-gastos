@@ -183,13 +183,24 @@ function renderCategoryProgress(totalExpense) {
 
 // 6. Configurar Formulario Modal
 function setupEventListeners() {
-    const submitBtn = document.querySelector('.modal-actions .btn-primary');
+    const submitBtn = document.getElementById('btn-save-modal');
+    const cancelBtn = document.getElementById('btn-cancel-modal');
 
     if (submitBtn) {
         submitBtn.onclick = async (e) => {
             e.preventDefault();
             await saveTransaction();
         };
+    }
+
+    if (cancelBtn) {
+        cancelBtn.onclick = (e) => {
+            e.preventDefault();
+            closeModal();
+            // Reset input values to avoid confusion on next open
+            document.querySelector('.amount-input').value = '€0,00';
+            document.querySelector('.form-input[placeholder="Ej: Compra semanal..."]').value = '';
+        }
     }
 }
 
@@ -265,6 +276,10 @@ window.openModal = function () {
     updateModalCategories(currentType);
     // Poner fecha de hoy
     document.querySelector('.form-input[type="date"]').value = new Date().toISOString().split('T')[0];
+};
+
+window.closeModal = function () {
+    document.getElementById('modal').classList.remove('active');
 };
 
 window.setType = function (el, type) {
