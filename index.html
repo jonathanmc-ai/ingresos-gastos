@@ -1087,12 +1087,23 @@
         <a class="nav-item" href="#" onclick="switchView('settings', this)">
           <span class="nav-icon">⚙️</span> Ajustes
         </a>
+
+        <!-- Enlaces Condicionales de Administración -->
+        <a class="nav-item" href="superadmin.html" id="nav-superadmin" style="display: none; color: var(--green);">
+          <span class="nav-icon">👑</span> Panel Superadmin
+        </a>
+        <a class="nav-item" href="equipo.html" id="nav-equipo" style="display: none; color: var(--blue);">
+          <span class="nav-icon">👥</span> Mi Equipo
+        </a>
       </nav>
       <div class="sidebar-footer">
         <div class="avatar">JM</div>
         <div class="user-info">
           <div class="user-name">Jonathan M.</div>
           <div class="user-email">jonathan@email.com</div>
+          <button class="btn btn-ghost" id="logoutBtn"
+            style="padding: 4px; margin-top: 4px; color: var(--red); width: 100%; font-size: 13px;">Cerrar
+            sesión</button>
         </div>
       </div>
     </aside>

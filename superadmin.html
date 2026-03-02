@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Panel Superadmin — MiFinanzas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+        .superadmin-container {
+            padding: 30px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .header-action {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-container">
+        <!-- Main Content -->
+        <main class="main-content" style="margin-left: 0; width: 100%;">
+            <!-- Topbar -->
+            <header class="topbar">
+                <div class="page-title">
+                    <h1 id="page-title-text" style="color: var(--green);">Panel Superadministrador</h1>
+                </div>
+                <div class="topbar-actions">
+                    <a href="index.html" class="btn btn-ghost" style="text-decoration: none;">Volver al App</a>
+                    <button class="btn btn-ghost" id="logoutBtn" style="color: var(--red);">Cerrar sesión</button>
+                </div>
+            </header>
+
+            <div class="superadmin-container">
+
+                <div class="card">
+                    <div class="header-action">
+                        <h2>Crear Nueva Empresa Cliente</h2>
+                        <p style="color: var(--text-muted); font-size: 14px;">Esto creará la empresa y su primer
+                            administrador.</p>
+                    </div>
+
+                    <form id="createCompanyForm">
+                        <div class="form-group">
+                            <label class="form-label" for="companyName">Nombre de la Empresa</label>
+                            <input class="form-input" type="text" id="companyName" placeholder="Ej: Coca-Cola S.A."
+                                required />
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label" for="adminName">Nombre del Administrador</label>
+                                <input class="form-input" type="text" id="adminName" placeholder="Ej: Juan Pérez"
+                                    required />
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label" for="adminEmail">Correo del Administrador</label>
+                                <input class="form-input" type="email" id="adminEmail" placeholder="admin@empresa.com"
+                                    required />
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="adminPassword">Contraseña Inicial</label>
+                            <input class="form-input" type="password" id="adminPassword" placeholder="Min. 6 caracteres"
+                                required minlength="6" />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary" id="btnCreate"
+                            style="width: 100%; margin-top: 10px;">
+                            Crear Empresa y Administrador
+                        </button>
+                    </form>
+
+                    <div id="statusMessage" style="margin-top: 16px; padding: 12px; border-radius: 8px; display: none;">
+                    </div>
+
+                </div>
+
+            </div>
+
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 1. Verificar Sesión y Rol (Protección de Ruta)
+            const { data: { session } } = await supabaseClient.auth.getSession();
+
+            if (!session) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Comprobar si es superadmin leyendo la tabla profiles
+            const { data: profile, error: profileError } = await supabaseClient
+                .from('profiles')
+                .select('role')
+                .eq('id', session.user.id)
+                .single();
+
+            if (profileError || profile?.role !== 'superadmin') {
+                alert('Acceso Denegado. Solo el Superadministrador puede ver esta página.');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // 2. Lógica del formulario
+            const form = document.getElementById('createCompanyForm');
+            const btnCreate = document.getElementById('btnCreate');
+            const statusMessage = document.getElementById('statusMessage');
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const companyName = document.getElementById('companyName').value;
+                const adminName = document.getElementById('adminName').value;
+                const adminEmail = document.getElementById('adminEmail').value;
+                const adminPassword = document.getElementById('adminPassword').value;
+
+                btnCreate.disabled = true;
+                btnCreate.textContent = 'Creando...';
+                statusMessage.style.display = 'none';
+
+                // Llamar a nuestra función mágica (RPC) creada en SQL
+                const { data, error } = await supabaseClient.rpc('create_company_admin', {
+                    admin_email: adminEmail,
+                    admin_password: adminPassword,
+                    admin_name: adminName,
+                    new_company_name: companyName
+                });
+
+                if (error) {
+                    statusMessage.textContent = 'Error: ' + error.message;
+                    statusMessage.style.background = 'var(--red-bg)';
+                    statusMessage.style.color = 'var(--red)';
+                    statusMessage.style.display = 'block';
+                } else {
+                    statusMessage.textContent = '¡Éxito! Empresa y Administrador creados correctamente.';
+                    statusMessage.style.background = 'rgba(16, 185, 129, 0.2)';
+                    statusMessage.style.color = 'var(--green)';
+                    statusMessage.style.display = 'block';
+                    form.reset();
+                }
+
+                btnCreate.disabled = false;
+                btnCreate.textContent = 'Crear Empresa y Administrador';
+            });
+
+            // 3. Lógica de Logout
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                await supabaseClient.auth.signOut();
+                window.location.href = 'login.html';
+            });
+
+        });
+    </script>
+</body>
+
+</html>

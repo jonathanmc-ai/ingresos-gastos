@@ -5,6 +5,7 @@
 // Variables Globales
 let transactions = [];
 let categories = [];
+let userProfile = null;
 let currentFilter = 'month'; // 'week', 'month', 'year'
 
 // 1. Inicialización y Autenticación
@@ -17,6 +18,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.href = 'login.html';
         return;
     }
+
+    // Obtener perfil y permisos del usuario
+    const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+
+    userProfile = profile;
 
     // Si hay sesión, cargar datos
     await fetchCategories();
@@ -31,6 +41,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelector('.avatar').textContent = avatarInitials;
     document.querySelector('.user-name').textContent = username;
     document.querySelector('.user-email').textContent = userEmail;
+
+    // Control de UI basado en Roles y Permisos
+    if (userProfile) {
+        // Mostrar enlaces de admin según rol
+        if (userProfile.role === 'superadmin') {
+            const superadminLink = document.getElementById('nav-superadmin');
+            if (superadminLink) superadminLink.style.display = 'flex';
+        }
+        if (userProfile.role === 'company_admin') {
+            const equipoLink = document.getElementById('nav-equipo');
+            if (equipoLink) equipoLink.style.display = 'flex';
+        }
+
+        // Bloquear creación de transacciones si no tiene permiso `can_create`
+        if (!userProfile.can_create) {
+            const addBtn = document.querySelector('.btn-primary[onclick="openModal()"]');
+            if (addBtn) addBtn.style.display = 'none';
+        }
+    }
 
     updateDashboardUI();
     setupEventListeners();

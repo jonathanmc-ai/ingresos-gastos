@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mi Equipo — MiFinanzas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+        .equipo-container {
+            padding: 30px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .header-action {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        /* Table styles */
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        .team-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .team-table th {
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .team-table td {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-primary);
+            font-size: 15px;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-primary);
+            width: 100%;
+            max-width: 500px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            padding: 24px;
+        }
+
+        .modal-header {
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .permissions-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-card);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+        }
+
+        .checkbox-container input {
+            accent-color: var(--green);
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-admin {
+            background: var(--purple-bg);
+            color: var(--purple);
+        }
+
+        .badge-user {
+            background: var(--blue-bg);
+            color: var(--blue);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-container">
+        <main class="main-content" style="margin-left: 0; width: 100%;">
+            <!-- Topbar -->
+            <header class="topbar">
+                <div class="page-title">
+                    <h1 id="page-title-text">Gestión de Equipo</h1>
+                    <p style="color: var(--text-muted); font-size: 14px; margin-top: 4px;" id="companyNameLabel">Tu
+                        Empresa</p>
+                </div>
+                <div class="topbar-actions">
+                    <a href="index.html" class="btn btn-ghost" style="text-decoration: none;">Volver al App</a>
+                </div>
+            </header>
+
+            <div class="equipo-container">
+                <div class="card">
+                    <div class="header-action">
+                        <h2>Usuarios Activos</h2>
+                        <button class="btn btn-primary" onclick="openModal()">
+                            <span>+</span> Nuevo Empleado
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="team-table">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Rol</th>
+                                    <th>Ver</th>
+                                    <th>Crear</th>
+                                    <th>Editar</th>
+                                    <th>Eliminar</th>
+                                </tr>
+                            </thead>
+                            <tbody id="teamMembersList">
+                                <!-- Data injected by JS -->
+                                <tr>
+                                    <td colspan="6" style="text-align: center;">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Nuevo Usuario -->
+    <div class="modal" id="userModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Añadir Nuevo Empleado</h2>
+                <p style="color: var(--text-muted); font-size: 14px; margin-top: 4px;">Este usuario tendrá acceso solo a
+                    los datos de esta empresa, limitado por los permisos que le asignes aquí.</p>
+            </div>
+
+            <form id="createUserForm">
+                <div class="form-group">
+                    <label class="form-label" for="userName">Nombre Completo</label>
+                    <input class="form-input" type="text" id="userName" placeholder="Ej: Ana María" required />
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="userEmail">Correo Electrónico</label>
+                        <input class="form-input" type="email" id="userEmail" placeholder="ana@empresa.com" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="userPassword">Contraseña</label>
+                        <input class="form-input" type="password" id="userPassword" placeholder="Min. 6 caracteres"
+                            required minlength="6" />
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 16px;">
+                    <label class="form-label">Permisos Granulares</label>
+                    <div class="permissions-grid">
+
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="permView" checked disabled />
+                            <!-- Ver siempre activo por defecto -->
+                            <span>👁️ Ver Historial</span>
+                        </label>
+
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="permCreate" />
+                            <span>✍️ Crear Nuevos</span>
+                        </label>
+
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="permEdit" />
+                            <span>✏️ Editar</span>
+                        </label>
+
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="permDelete" />
+                            <span>🗑️ Eliminar</span>
+                        </label>
+
+                    </div>
+                </div>
+
+                <div id="statusMessage" style="margin-top: 16px; padding: 12px; border-radius: 8px; display: none;">
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btnCreateUser">Crear Empleado</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script>
+        let userProfile = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 1. Verificación de seguridad
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) { window.location.href = 'login.html'; return; }
+
+            const { data: profile } = await supabaseClient
+                .from('profiles')
+                .select('*, companies(name)')
+                .eq('id', session.user.id)
+                .single();
+
+            userProfile = profile;
+
+            if (!profile || (profile.role !== 'company_admin' && profile.role !== 'superadmin')) {
+                alert('Acceso Denegado. Solo administradores pueden gestionar el equipo.');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // 2. UI Updates
+            document.getElementById('companyNameLabel').textContent = `Empresa: ${profile.companies?.name || 'Cargando...'}`;
+            await fetchTeamMembers();
+        });
+
+        // 3. Obtener Integrantes de la Empresa
+        async function fetchTeamMembers() {
+            const { data, error } = await supabaseClient
+                .from('profiles')
+                .select('*')
+                .eq('company_id', userProfile.company_id)
+                .order('created_at', { ascending: true });
+
+            if (error) {
+                console.error('Error cargando equipo:', error);
+                return;
+            }
+
+            const tbody = document.getElementById('teamMembersList');
+            tbody.innerHTML = '';
+
+            data.forEach(member => {
+                const row = document.createElement('tr');
+
+                const isSuperadmin = member.role === 'superadmin';
+                const isAdmin = member.role === 'company_admin';
+                const roleHtml = isSuperadmin
+                    ? '<span class="badge badge-admin">Master</span>'
+                    : isAdmin
+                        ? '<span class="badge badge-admin">Admin</span>'
+                        : '<span class="badge badge-user">Empleado</span>';
+
+                const checkIcon = '<span style="color: var(--green);">✔️</span>';
+                const crossIcon = '<span style="color: var(--text-muted); opacity: 0.5;">✖️</span>';
+
+                row.innerHTML = `
+          <td><strong>${member.full_name || 'Sin nombre'}</strong></td>
+          <td>${roleHtml}</td>
+          <td>${member.can_view ? checkIcon : crossIcon}</td>
+          <td>${member.can_create ? checkIcon : crossIcon}</td>
+          <td>${member.can_edit ? checkIcon : crossIcon}</td>
+          <td>${member.can_delete ? checkIcon : crossIcon}</td>
+        `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // 4. Lógica del Modal
+        function openModal() {
+            document.getElementById('userModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('userModal').classList.remove('active');
+            document.getElementById('createUserForm').reset();
+            document.getElementById('statusMessage').style.display = 'none';
+        }
+
+        // 5. Crear Empleado usando RPC
+        document.getElementById('createUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const btn = document.getElementById('btnCreateUser');
+            const statusMsg = document.getElementById('statusMessage');
+
+            const email = document.getElementById('userEmail').value;
+            const pass = document.getElementById('userPassword').value;
+            const name = document.getElementById('userName').value;
+
+            const canCreate = document.getElementById('permCreate').checked;
+            const canEdit = document.getElementById('permEdit').checked;
+            const canDelete = document.getElementById('permDelete').checked;
+
+            btn.disabled = true;
+            btn.textContent = 'Guardando...';
+
+            // Llamada al RPC de guardado
+            const { data, error } = await supabaseClient.rpc('create_company_user', {
+                user_email: email,
+                user_password: pass,
+                user_name: name,
+                p_can_view: true, // Siempre true por UI
+                p_can_create: canCreate,
+                p_can_edit: canEdit,
+                p_can_delete: canDelete
+            });
+
+            if (error) {
+                statusMsg.textContent = 'Error: ' + error.message;
+                statusMsg.style.background = 'var(--red-bg)';
+                statusMsg.style.color = 'var(--red)';
+                statusMsg.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Crear Empleado';
+            } else {
+                closeModal();
+                await fetchTeamMembers();
+                btn.disabled = false;
+                btn.textContent = 'Crear Empleado';
+            }
+        });
+
+    </script>
+</body>
+
+</html>
