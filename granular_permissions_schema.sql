@@ -139,16 +139,18 @@ BEGIN
         gen_random_uuid(), new_user_id::text, new_user_id, jsonb_build_object('sub', new_user_id::text, 'email', admin_email), 'email', now(), now(), now()
     );
 
-    -- Actualizar el perfil que se creó en el trigger para asignarle la empresa, el rol y todos los permisos
-    UPDATE public.profiles 
+    -- Asegurar que el perfil se crea/asigna de manera explícita (Ignorando fallos del trigger si los hay)
+    INSERT INTO public.profiles (id, company_id, role, full_name, can_view, can_create, can_edit, can_delete)
+    VALUES (new_user_id, new_company_id, 'company_admin', admin_name, true, true, true, true)
+    ON CONFLICT (id) DO UPDATE 
     SET 
-      company_id = new_company_id, 
-      role = 'company_admin',
-      can_view = true,
-      can_create = true,
-      can_edit = true,
-      can_delete = true
-    WHERE id = new_user_id;
+      company_id = EXCLUDED.company_id, 
+      role = EXCLUDED.role,
+      full_name = EXCLUDED.full_name,
+      can_view = EXCLUDED.can_view,
+      can_create = EXCLUDED.can_create,
+      can_edit = EXCLUDED.can_edit,
+      can_delete = EXCLUDED.can_delete;
 
     RETURN json_build_object('success', true, 'company_id', new_company_id, 'user_id', new_user_id, 'email', admin_email);
 END;
@@ -197,16 +199,18 @@ BEGIN
         gen_random_uuid(), new_user_id::text, new_user_id, jsonb_build_object('sub', new_user_id::text, 'email', user_email), 'email', now(), now(), now()
     );
 
-    -- Actualizar el perfil del nuevo empleado para asignarle la MISMA empresa que su admin Y LOS PERMISOS
-    UPDATE public.profiles 
+    -- Asegurar que el perfil se crea/asigna explícitamente y con los permisos solicitados
+    INSERT INTO public.profiles (id, company_id, role, full_name, can_view, can_create, can_edit, can_delete)
+    VALUES (new_user_id, caller_company_id, 'company_user', user_name, p_can_view, p_can_create, p_can_edit, p_can_delete)
+    ON CONFLICT (id) DO UPDATE 
     SET 
-      company_id = caller_company_id, 
-      role = 'company_user',
-      can_view = p_can_view,
-      can_create = p_can_create,
-      can_edit = p_can_edit,
-      can_delete = p_can_delete
-    WHERE id = new_user_id;
+      company_id = EXCLUDED.company_id, 
+      role = EXCLUDED.role,
+      full_name = EXCLUDED.full_name,
+      can_view = EXCLUDED.can_view,
+      can_create = EXCLUDED.can_create,
+      can_edit = EXCLUDED.can_edit,
+      can_delete = EXCLUDED.can_delete;
 
     RETURN json_build_object('success', true, 'user_id', new_user_id, 'email', user_email);
 END;
