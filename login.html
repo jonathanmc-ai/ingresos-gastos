@@ -102,9 +102,10 @@
             <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Entrar a mi cuenta</button>
         </form>
 
-        <a href="admin-login.html" class="client-link"
-            style="display: block; text-align: center; margin-top: 24px; color: var(--text-muted); font-size: 13px; text-decoration: none;">Acceso
-            a Panel Maestro</a>
+        <div id="copyright-trigger"
+            style="text-align: center; margin-top: 24px; color: var(--text-muted); font-size: 13px; cursor: default; user-select: none;">
+            &copy; <span id="currentYear"></span> MiFinanzas App
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -136,6 +137,27 @@
             } else {
                 // Redirigir al dashboard si tiene éxito
                 window.location.href = 'index.html';
+            }
+        });
+
+        // Current Year for Copyright
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+
+        // Easter egg: 6 clicks to access admin panel
+        let clickCount = 0;
+        let clickTimer = null;
+
+        document.getElementById('copyright-trigger').addEventListener('click', () => {
+            clickCount++;
+
+            // Reset the counter if they stop clicking for more than 1.5 seconds
+            if (clickTimer) clearTimeout(clickTimer);
+            clickTimer = setTimeout(() => {
+                clickCount = 0;
+            }, 1500);
+
+            if (clickCount >= 6) {
+                window.location.href = 'admin-login.html';
             }
         });
     </script>
