@@ -1110,6 +1110,16 @@
 
     <!-- MAIN CONTENT -->
     <main class="main">
+
+      <!-- AUDIT BANNER -->
+      <div id="auditBanner"
+        style="display: none; background: var(--orange-bg); color: var(--orange); padding: 12px 24px; text-align: center; border-bottom: 1px solid rgba(249, 115, 22, 0.2); font-weight: 500; font-size: 14px; position: relative;">
+        <span>⚠️ Modo Auditoría: Viendo datos de la empresa <strong id="auditCompanyName">...</strong></span>
+        <button class="btn btn-ghost" onclick="exitAuditMode()"
+          style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); padding: 6px 12px; height: auto; min-height: 0; font-size: 13px; color: var(--orange); border: 1px solid rgba(249, 115, 22, 0.3);">Salir
+          Auditoría</button>
+      </div>
+
       <!-- TOP BAR -->
       <header class="topbar">
         <div style="display:flex;align-items:center;gap:16px;">

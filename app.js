@@ -8,6 +8,10 @@ let categories = [];
 let userProfile = null;
 let currentFilter = 'month'; // 'week', 'month', 'year'
 
+// Variables de Auditoría
+let auditCompanyId = localStorage.getItem('audit_company_id');
+let auditCompanyName = localStorage.getItem('audit_company_name');
+
 // 1. Inicialización y Autenticación
 document.addEventListener('DOMContentLoaded', async () => {
     // Verificar si hay sesión activa
@@ -59,6 +63,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             const addBtn = document.querySelector('.btn-primary[onclick="openModal()"]');
             if (addBtn) addBtn.style.display = 'none';
         }
+
+        // --- MODO AUDITORÍA DE SUPERADMIN ---
+        if (userProfile.role === 'superadmin' && auditCompanyId) {
+            const banner = document.getElementById('auditBanner');
+            const nameEl = document.getElementById('auditCompanyName');
+
+            if (banner && nameEl) {
+                banner.style.display = 'block';
+                nameEl.textContent = auditCompanyName || 'Desconocida';
+            }
+        }
     }
 
     updateDashboardUI();
@@ -67,10 +82,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // 2. Obtener Datos de Supabase
 async function fetchCategories() {
-    const { data, error } = await supabaseClient
+    let query = supabaseClient
         .from('categories')
         .select('*')
         .order('name', { ascending: true });
+
+    // Si estamos en modo auditoría como superadmin, forzamos el filtro por empresa
+    if (userProfile?.role === 'superadmin' && auditCompanyId) {
+        query = query.eq('company_id', auditCompanyId);
+    } // Si NO estamos auditando pero somos superadmin, por RLS veríamos todo (no ideal para el dashboard), 
+    // pero asumimos que el superadmin casi siempre entrará desde su panel seleccionando auditar.
+
+    const { data, error } = await query;
 
     if (error) {
         console.error('Error fetching categories:', error);
@@ -80,7 +103,7 @@ async function fetchCategories() {
 }
 
 async function fetchTransactions() {
-    const { data, error } = await supabaseClient
+    let query = supabaseClient
         .from('transactions')
         .select(`
       *,
@@ -91,6 +114,13 @@ async function fetchTransactions() {
       )
     `)
         .order('date', { ascending: false });
+
+    // Forzar filtro en modo auditoría
+    if (userProfile?.role === 'superadmin' && auditCompanyId) {
+        query = query.eq('company_id', auditCompanyId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         console.error('Error fetching transactions:', error);
@@ -361,4 +391,11 @@ window.selectPill = function (el) {
     document.querySelectorAll('.cat-pill:not(.selected)').forEach(p => {
         p.style = '';
     });
+};
+
+// 12. Salir del Modo Auditoría
+window.exitAuditMode = function () {
+    localStorage.removeItem('audit_company_id');
+    localStorage.removeItem('audit_company_name');
+    window.location.href = 'superadmin.html';
 };

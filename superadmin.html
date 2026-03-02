@@ -101,6 +101,36 @@
 
                 </div>
 
+                <!-- Lista de Empresas -->
+                <div class="card" style="margin-top: 24px;">
+                    <div class="header-action">
+                        <h2>Empresas Registradas</h2>
+                    </div>
+
+                    <div class="table-responsive" style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                            <thead>
+                                <tr>
+                                    <th
+                                        style="padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 600; font-size: 13px;">
+                                        Nombre</th>
+                                    <th
+                                        style="padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 600; font-size: 13px;">
+                                        Fecha Alta</th>
+                                    <th
+                                        style="padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 600; font-size: 13px;">
+                                        Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="companiesList">
+                                <tr>
+                                    <td colspan="3" style="text-align: center; padding: 16px;">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
             </div>
 
         </main>
@@ -130,6 +160,12 @@
                 window.location.href = 'index.html';
                 return;
             }
+
+            // Al entrar al panel superadmin, limpiamos cualquier estado de auditoría previo
+            localStorage.removeItem('audit_company_id');
+            localStorage.removeItem('audit_company_name');
+
+            await fetchCompanies();
 
             // 2. Lógica del formulario
             const form = document.getElementById('createCompanyForm');
@@ -180,6 +216,48 @@
             });
 
         });
+
+        // 4. Obtener la lista de empresas
+        async function fetchCompanies() {
+            const { data, error } = await supabaseClient
+                .from('companies')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error fetching companies:', error);
+                return;
+            }
+
+            const tbody = document.getElementById('companiesList');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 16px; color: var(--text-muted);">No hay empresas registradas.</td></tr>';
+                return;
+            }
+
+            data.forEach(company => {
+                const tr = document.createElement('tr');
+                const date = new Date(company.created_at).toLocaleDateString();
+
+                tr.innerHTML = `
+                    <td style="padding: 16px; border-bottom: 1px solid var(--border); font-weight: 500;">${company.name}</td>
+                    <td style="padding: 16px; border-bottom: 1px solid var(--border); color: var(--text-muted);">${date}</td>
+                    <td style="padding: 16px; border-bottom: 1px solid var(--border);">
+                        <button class="btn btn-ghost" style="color: var(--blue);" onclick="auditCompany('${company.id}', '${company.name.replace(/'/g, "\\'")}')">Auditar Cuenta</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 5. Auditar Empresa (Suplantar)
+        function auditCompany(companyId, companyName) {
+            localStorage.setItem('audit_company_id', companyId);
+            localStorage.setItem('audit_company_name', companyName);
+            window.location.href = 'index.html';
+        }
     </script>
 </body>
 
