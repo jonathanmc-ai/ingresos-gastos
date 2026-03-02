@@ -1,6 +1,7 @@
 -- fix_auth_rpc_final.sql
 -- Solución para el hashing de contraseñas de Supabase
--- La API moderna de Supabase Auth (GoTrue) verifica que los hashes de las contraseñas insertadas por SQL contengan explícitamente el prefijo $2a$ (bcrypt clásico).
+-- Hemos sincronizado ESTRICTAMENTE los inserts con la documentación oficial de Supabase.
+-- REFERENCIA VERIFICADA: crypt('password123', gen_salt('bf'))
 
 CREATE OR REPLACE FUNCTION create_company_admin(
     admin_email TEXT,
@@ -28,19 +29,20 @@ BEGIN
 
     new_user_id := gen_random_uuid();
     
-    -- El secreto para GoTrue: el hash de bcrypt debe comenzar por $2a$ y coste 10
-    encrypted_pw := extensions.crypt(admin_password, extensions.gen_salt('bf', 10));
+    -- El secreto para GoTrue: usar exactamente la extensión pgcrypto de Supabase sin coste explícito.
+    encrypted_pw := extensions.crypt(admin_password, extensions.gen_salt('bf'));
 
     INSERT INTO auth.users (
         instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, 
         raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
-        confirmation_token, email_change, email_change_token_new, recovery_token
+        confirmation_token, email_change, email_change_token_new, recovery_token,
+        last_sign_in_at, recovery_sent_at
     ) VALUES (
         '00000000-0000-0000-0000-000000000000', new_user_id, 'authenticated', 'authenticated', 
         safe_email, encrypted_pw, now(), 
         '{"provider":"email","providers":["email"]}', 
         jsonb_build_object('full_name', admin_name), now(), now(),
-        '', '', '', ''
+        '', '', '', '', now(), now()
     );
 
     INSERT INTO auth.identities (
@@ -89,29 +91,31 @@ BEGIN
 
     SELECT id INTO v_admin_id FROM public.profiles WHERE company_id = p_company_id AND role = 'company_admin' LIMIT 1;
 
-    IF v_admin_id IS NOT NULL THEN
-        -- Actualizar contraseña
-        IF p_admin_password IS NOT NULL AND TRIM(p_admin_password) != '' THEN
-            v_encrypted_pw := extensions.crypt(p_admin_password, extensions.gen_salt('bf', 10));
-            UPDATE auth.users SET encrypted_password = v_encrypted_pw, updated_at = now() WHERE id = v_admin_id;
-        END IF;
-
-        -- Actualizar email
-        IF p_admin_email IS NOT NULL AND TRIM(p_admin_email) != '' THEN
-            safe_email := LOWER(TRIM(p_admin_email));
-            UPDATE auth.users SET email = safe_email, updated_at = now() WHERE id = v_admin_id;
-            
-            UPDATE auth.identities 
-            SET identity_data = jsonb_set(identity_data, '{email}', to_jsonb(safe_email::text)) 
-            WHERE user_id = v_admin_id AND provider = 'email';
-        END IF;
+    IF v_admin_id IS NULL THEN
+        RAISE EXCEPTION 'No se encontró el administrador de la empresa. Puede que la cuenta ya no exista.';
     END IF;
 
-    RETURN json_build_object('success', true);
+    -- Actualizar contraseña
+    IF p_admin_password IS NOT NULL AND p_admin_password != '' THEN
+        v_encrypted_pw := extensions.crypt(p_admin_password, extensions.gen_salt('bf'));
+        UPDATE auth.users SET encrypted_password = v_encrypted_pw, updated_at = now() WHERE id = v_admin_id;
+    END IF;
+
+    -- Actualizar email
+    IF p_admin_email IS NOT NULL AND TRIM(p_admin_email) != '' THEN
+        safe_email := LOWER(TRIM(p_admin_email));
+        UPDATE auth.users SET email = safe_email, updated_at = now() WHERE id = v_admin_id;
+        
+        UPDATE auth.identities 
+        SET identity_data = jsonb_set(identity_data, '{email}', to_jsonb(safe_email::text)) 
+        WHERE user_id = v_admin_id AND provider = 'email';
+    END IF;
+
+    RETURN json_build_object('success', true, 'user_id', v_admin_id);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Actualizar también la creación de usuarios normales de la empresa
+-- Creación de usuarios de empresa con el hash exacto documentado
 CREATE OR REPLACE FUNCTION create_company_user(
     user_email TEXT,
     user_password TEXT,
@@ -141,18 +145,19 @@ BEGIN
     END IF;
 
     new_user_id := gen_random_uuid();
-    encrypted_pw := extensions.crypt(user_password, extensions.gen_salt('bf', 10));
+    encrypted_pw := extensions.crypt(user_password, extensions.gen_salt('bf'));
 
     INSERT INTO auth.users (
         instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, 
         raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
-        confirmation_token, email_change, email_change_token_new, recovery_token
+        confirmation_token, email_change, email_change_token_new, recovery_token,
+        last_sign_in_at, recovery_sent_at
     ) VALUES (
         '00000000-0000-0000-0000-000000000000', new_user_id, 'authenticated', 'authenticated', 
         safe_email, encrypted_pw, now(), 
         '{"provider":"email","providers":["email"]}', 
         jsonb_build_object('full_name', user_name), now(), now(),
-        '', '', '', ''
+        '', '', '', '', now(), now()
     );
 
     INSERT INTO auth.identities (
