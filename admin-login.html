@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Login — MiFinanzas</title>
+    <title>Login Superadmin — MiFinanzas</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
@@ -35,7 +35,7 @@
         .auth-header .logo {
             width: 48px;
             height: 48px;
-            background: linear-gradient(135deg, var(--green), #059669);
+            background: linear-gradient(135deg, var(--purple), var(--blue));
             border-radius: 12px;
             display: flex;
             align-items: center;
@@ -74,6 +74,20 @@
             display: none;
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
+
+        .client-link {
+            display: block;
+            text-align: center;
+            margin-top: 24px;
+            color: var(--text-muted);
+            font-size: 13px;
+            text-decoration: none;
+        }
+
+        .client-link:hover {
+            color: var(--text-primary);
+            text-decoration: underline;
+        }
     </style>
 </head>
 
@@ -81,9 +95,9 @@
 
     <div class="auth-container">
         <div class="auth-header">
-            <div class="logo">₿</div>
-            <h1>Acceso Clientes</h1>
-            <p>Entorno privado para empresas y empleados</p>
+            <div class="logo">👑</div>
+            <h1>Panel Superadmin</h1>
+            <p>Acceso administrativo maestro</p>
         </div>
 
         <div class="error-box" id="authError"></div>
@@ -91,7 +105,7 @@
         <form id="loginForm">
             <div class="form-group">
                 <label class="form-label" for="email">Correo electrónico</label>
-                <input class="form-input" type="email" id="email" placeholder="tu@email.com" required />
+                <input class="form-input" type="email" id="email" placeholder="superadmin@email.com" required />
             </div>
 
             <div class="form-group">
@@ -99,12 +113,12 @@
                 <input class="form-input" type="password" id="password" placeholder="••••••••" required />
             </div>
 
-            <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Entrar a mi cuenta</button>
+            <button type="submit" class="btn btn-primary"
+                style="background: var(--purple); width: 100%; margin-top: 16px; justify-content: center;"
+                id="loginBtn">Entrar como Superadmin</button>
         </form>
 
-        <a href="admin-login.html" class="client-link"
-            style="display: block; text-align: center; margin-top: 24px; color: var(--text-muted); font-size: 13px; text-decoration: none;">Acceso
-            a Panel Maestro</a>
+        <a href="login.html" class="client-link">¿Eres un cliente? Inicia sesión aquí</a>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -120,23 +134,43 @@
 
             // Reset state
             errorBox.style.display = 'none';
-            loginBtn.textContent = 'Iniciando sesión...';
+            loginBtn.textContent = 'Verificando credenciales...';
             loginBtn.disabled = true;
 
-            const { data, error } = await supabaseClient.auth.signInWithPassword({
+            // 1. Sign in with Supabase
+            const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
                 email: email,
                 password: password
             });
 
-            if (error) {
+            if (authError) {
                 errorBox.textContent = 'Correo o contraseña incorrectos.';
                 errorBox.style.display = 'block';
-                loginBtn.textContent = 'Entrar a mi cuenta';
+                loginBtn.textContent = 'Entrar como Superadmin';
                 loginBtn.disabled = false;
-            } else {
-                // Redirigir al dashboard si tiene éxito
-                window.location.href = 'index.html';
+                return;
             }
+
+            // 2. Check if user is actually a superadmin
+            const { data: profile, error: profileError } = await supabaseClient
+                .from('profiles')
+                .select('role')
+                .eq('id', authData.user.id)
+                .single();
+
+            if (profileError || profile?.role !== 'superadmin') {
+                // Log them out immediately if they are not superadmin
+                await supabaseClient.auth.signOut();
+                errorBox.textContent = 'Acceso denegado. Esta área es exclusiva para el Superadministrador.';
+                errorBox.style.display = 'block';
+                loginBtn.textContent = 'Entrar como Superadmin';
+                loginBtn.disabled = false;
+                return;
+            }
+
+            // 3. Success -> Redirect to Superadmin panel
+            window.location.href = 'superadmin.html';
+
         });
     </script>
 
