@@ -7,10 +7,31 @@ let transactions = [];
 let categories = [];
 let currentFilter = 'month'; // 'week', 'month', 'year'
 
-// 1. Inicialización
+// 1. Inicialización y Autenticación
 document.addEventListener('DOMContentLoaded', async () => {
+    // Verificar si hay sesión activa
+    const { data: { session } } = await supabaseClient.auth.getSession();
+
+    if (!session) {
+        // Redirigir al login si no está autenticado
+        window.location.href = 'login.html';
+        return;
+    }
+
+    // Si hay sesión, cargar datos
     await fetchCategories();
     await fetchTransactions();
+
+    // Obtener nombre del usuario para la UI
+    const username = session.user.user_metadata?.full_name || session.user.email;
+    const userEmail = session.user.email;
+
+    // Actualizar Avatar
+    const avatarInitials = username.substring(0, 2).toUpperCase();
+    document.querySelector('.avatar').textContent = avatarInitials;
+    document.querySelector('.user-name').textContent = username;
+    document.querySelector('.user-email').textContent = userEmail;
+
     updateDashboardUI();
     setupEventListeners();
 });
@@ -185,6 +206,7 @@ function renderCategoryProgress(totalExpense) {
 function setupEventListeners() {
     const submitBtn = document.getElementById('btn-save-modal');
     const cancelBtn = document.getElementById('btn-cancel-modal');
+    const logoutBtn = document.getElementById('logoutBtn');
 
     if (submitBtn) {
         submitBtn.onclick = async (e) => {
@@ -200,6 +222,14 @@ function setupEventListeners() {
             // Reset input values to avoid confusion on next open
             document.querySelector('.amount-input').value = '€0,00';
             document.querySelector('.form-input[placeholder="Ej: Compra semanal..."]').value = '';
+        }
+    }
+
+    if (logoutBtn) {
+        logoutBtn.onclick = async (e) => {
+            e.preventDefault();
+            await supabaseClient.auth.signOut();
+            window.location.href = 'login.html';
         }
     }
 }

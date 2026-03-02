@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login — MiFinanzas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: var(--bg-primary);
+        }
+
+        .auth-container {
+            background: var(--bg-secondary);
+            padding: 40px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-header .logo {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--green), #059669);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 24px;
+            color: white;
+            margin: 0 auto 16px;
+        }
+
+        .auth-header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .auth-header p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-top: 8px;
+        }
+
+        .btn-block {
+            width: 100%;
+            padding: 12px;
+            margin-top: 16px;
+        }
+
+        .error-box {
+            background: var(--red-bg);
+            color: var(--red);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            display: none;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="auth-container">
+        <div class="auth-header">
+            <div class="logo">₿</div>
+            <h1>Bienvenido a MiFinanzas</h1>
+            <p>Inicia sesión en tu cuenta de empresa</p>
+        </div>
+
+        <div class="error-box" id="authError"></div>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label class="form-label" for="email">Correo electrónico</label>
+                <input class="form-input" type="email" id="email" placeholder="tu@email.com" required />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="password">Contraseña</label>
+                <input class="form-input" type="password" id="password" placeholder="••••••••" required />
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Entrar</button>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorBox = document.getElementById('authError');
+            const loginBtn = document.getElementById('loginBtn');
+
+            // Reset state
+            errorBox.style.display = 'none';
+            loginBtn.textContent = 'Iniciando sesión...';
+            loginBtn.disabled = true;
+
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email: email,
+                password: password
+            });
+
+            if (error) {
+                errorBox.textContent = 'Correo o contraseña incorrectos.';
+                errorBox.style.display = 'block';
+                loginBtn.textContent = 'Entrar';
+                loginBtn.disabled = false;
+            } else {
+                // Redirigir al dashboard si tiene éxito
+                window.location.href = 'index.html';
+            }
+        });
+    </script>
+
+</body>
+
+</html>
