@@ -390,10 +390,9 @@
                 return;
             }
 
-            const { error } = await supabaseClient
-                .from('companies')
-                .delete()
-                .eq('id', companyId);
+            const { error } = await supabaseClient.rpc('delete_company_and_users', {
+                p_company_id: companyId
+            });
 
             if (error) {
                 alert("Error al eliminar la empresa: " + error.message);
