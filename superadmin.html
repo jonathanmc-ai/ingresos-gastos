@@ -209,7 +209,13 @@
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             // 1. Verificar Sesión y Rol (Protección de Ruta)
-            const { data: { session } } = await supabaseClient.auth.getSession();
+            supabaseClient.auth.onAuthStateChange((event, session) => {
+                if (event === 'SIGNED_OUT') {
+                    window.location.href = 'admin-login.html';
+                }
+            });
+
+            let { data: { session } } = await supabaseClient.auth.getSession();
 
             if (!session) {
                 window.location.href = 'admin-login.html';

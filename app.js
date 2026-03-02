@@ -14,11 +14,18 @@ let auditCompanyName = localStorage.getItem('audit_company_name');
 
 // 1. Inicialización y Autenticación
 document.addEventListener('DOMContentLoaded', async () => {
-    // Verificar si hay sesión activa
-    const { data: { session } } = await supabaseClient.auth.getSession();
+    // Escuchar cambios de estado para una sesión persistente
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_OUT') {
+            window.location.href = 'login.html';
+        }
+    });
+
+    // Verificar si hay sesión activa (con un pequeño retraso por si acaso tarda en leer Storage)
+    let { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
 
     if (!session) {
-        // Redirigir al login si no está autenticado
+        // Redirigir al login si definitivamente no está autenticado
         window.location.href = 'login.html';
         return;
     }
