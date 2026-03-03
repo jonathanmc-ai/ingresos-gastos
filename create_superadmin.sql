@@ -41,9 +41,10 @@ BEGIN
         'email', now(), now(), now()
     );
 
-    -- 3. Crear su perfil y forzar el rol de superadmin (sin company_id, ya que manejan todas)
-    INSERT INTO public.profiles (id, role, full_name, can_view, can_create, can_edit, can_delete)
-    VALUES (v_user_id, 'superadmin', v_admin_name, true, true, true, true);
+    -- 3. Actualizar su perfil (creado automáticamente por el trigger) para forzar el rol de superadmin
+    UPDATE public.profiles 
+    SET role = 'superadmin', full_name = v_admin_name, can_view = true, can_create = true, can_edit = true, can_delete = true
+    WHERE id = v_user_id;
 
 END;
 $$;
