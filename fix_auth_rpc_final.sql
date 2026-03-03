@@ -80,6 +80,8 @@ DECLARE
     v_admin_id UUID;
     v_encrypted_pw TEXT;
     safe_email TEXT;
+    v_pwd_changed BOOLEAN := false;
+    v_email_changed BOOLEAN := false;
 BEGIN
     IF NOT auth_user_is_superadmin() THEN
         RAISE EXCEPTION 'Solo los superadmins pueden editar empresas';
@@ -89,16 +91,22 @@ BEGIN
         UPDATE public.companies SET name = p_company_name WHERE id = p_company_id;
     END IF;
 
-    SELECT id INTO v_admin_id FROM public.profiles WHERE company_id = p_company_id AND role = 'company_admin' LIMIT 1;
+    -- Buscar al admin (si creaste la empresa nueva, su rol es company_admin)
+    SELECT id INTO v_admin_id FROM public.profiles WHERE company_id = p_company_id AND (role = 'company_admin' OR role = 'company_user') LIMIT 1;
 
     IF v_admin_id IS NULL THEN
-        RAISE EXCEPTION 'No se encontró el administrador de la empresa. Puede que la cuenta ya no exista.';
+        RAISE EXCEPTION 'No se encontró ningún administrador ni usuario en esta empresa para actualizar.';
     END IF;
 
     -- Actualizar contraseña
-    IF p_admin_password IS NOT NULL AND p_admin_password != '' THEN
-        v_encrypted_pw := extensions.crypt(p_admin_password, extensions.gen_salt('bf'));
+    IF p_admin_password IS NOT NULL AND TRIM(p_admin_password) != '' THEN
+        v_encrypted_pw := extensions.crypt(TRIM(p_admin_password), extensions.gen_salt('bf'));
         UPDATE auth.users SET encrypted_password = v_encrypted_pw, updated_at = now() WHERE id = v_admin_id;
+        
+        -- Matar todas las sesiones activas de este usuario para que tenga que usar la nueva clave
+        DELETE FROM auth.sessions WHERE user_id = v_admin_id;
+        
+        v_pwd_changed := true;
     END IF;
 
     -- Actualizar email
@@ -109,9 +117,16 @@ BEGIN
         UPDATE auth.identities 
         SET identity_data = jsonb_set(identity_data, '{email}', to_jsonb(safe_email::text)) 
         WHERE user_id = v_admin_id AND provider = 'email';
+        
+        v_email_changed := true;
     END IF;
 
-    RETURN json_build_object('success', true, 'user_id', v_admin_id);
+    RETURN json_build_object(
+        'success', true, 
+        'user_id', v_admin_id, 
+        'password_updated', v_pwd_changed, 
+        'email_updated', v_email_changed
+    );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
