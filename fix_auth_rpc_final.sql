@@ -78,10 +78,8 @@ CREATE OR REPLACE FUNCTION update_company_admin(
 ) RETURNS JSON AS $$
 DECLARE
     v_admin_id UUID;
-    v_current_email TEXT;
-    v_new_user_id UUID;
+    v_encrypted_pw TEXT;
     safe_email TEXT;
-    v_final_email TEXT;
     v_pwd_changed BOOLEAN := false;
     v_email_changed BOOLEAN := false;
 BEGIN
@@ -93,91 +91,36 @@ BEGIN
         UPDATE public.companies SET name = p_company_name WHERE id = p_company_id;
     END IF;
 
-    -- Buscar al admin
+    -- Buscar al admin (si creaste la empresa nueva, su rol es company_admin)
     SELECT id INTO v_admin_id FROM public.profiles WHERE company_id = p_company_id AND (role = 'company_admin' OR role = 'company_user') LIMIT 1;
 
     IF v_admin_id IS NULL THEN
         RAISE EXCEPTION 'No se encontró ningún administrador ni usuario en esta empresa para actualizar.';
     END IF;
 
-    -- Extraer su email actual por si solo cambia la contraseña
-    SELECT email INTO v_current_email FROM auth.users WHERE id = v_admin_id;
-    
-    -- Definir cuál será el email final (el nuevo si lo provee, o el actual si no)
-    IF p_admin_email IS NOT NULL AND TRIM(p_admin_email) != '' THEN
-        v_final_email := LOWER(TRIM(p_admin_email));
-        v_email_changed := true;
-    ELSE
-        v_final_email := v_current_email;
+    -- Actualizar contraseña SIEMPRE usando la forma recomendada: UPDATE auth.users
+    -- NOTA: El 500 puede ser si se envía una string vacía y `crypt` falla, o si la sesión del auth.sessions no se limpia bien
+    IF p_admin_password IS NOT NULL AND TRIM(p_admin_password) != '' THEN
+        v_encrypted_pw := extensions.crypt(TRIM(p_admin_password), extensions.gen_salt('bf'));
+        UPDATE auth.users SET encrypted_password = v_encrypted_pw, updated_at = now() WHERE id = v_admin_id;
+        
+        -- FORZAR limpieza de sesiones de GoTrue
+        DELETE FROM auth.sessions WHERE user_id = v_admin_id;
+        DELETE FROM auth.refresh_tokens WHERE session_id IN (SELECT id FROM auth.sessions WHERE user_id = v_admin_id);
+        
+        v_pwd_changed := true;
     END IF;
 
-    -- IMPORTANTE: Cambiar la contraseña mutando 'encrypted_password' hace que la API de login de Supabase lance un 500 Internal Server Error
-    -- porque el hash que genera postgresql crypt() a veces difiere en la versión de bcrypt que usa GoTrue internamente.
-    -- LA SOLUCIÓN SEGURA: Si se cambia la contraseña, o el email, re-creamos al usuario desde cero para que el hash de creación sí funcione,
-    -- o bien, al ser un entorno puramente SQL sin 'service_role' key, la única forma 100% segura que sí nos ha funcionado es el INSERT de creación.
-    -- Así que borramos el usuario viejo en Auth y lo volvemos a insertar con la nueva contraseña.
-    
-    IF (p_admin_password IS NOT NULL AND TRIM(p_admin_password) != '') OR v_email_changed THEN
-        v_pwd_changed := (p_admin_password IS NOT NULL AND TRIM(p_admin_password) != '');
+    -- Actualizar email
+    IF p_admin_email IS NOT NULL AND TRIM(p_admin_email) != '' THEN
+        safe_email := LOWER(TRIM(p_admin_email));
+        UPDATE auth.users SET email = safe_email, updated_at = now() WHERE id = v_admin_id;
         
-        -- Si no dio contraseña pero sí email, necesitamos una contraseña. Como no la sabemos, esto sería un peligro. 
-        -- Limitación: Para cambiar el email usando SQL crudo, HAY que proporcionar una contraseña nueva también.
-        IF v_email_changed AND NOT v_pwd_changed THEN
-            RAISE EXCEPTION 'Para cambiar el email desde este panel, debes asignar una contraseña nueva al usuario por seguridad.';
-        END IF;
-
-        -- 1. Borrar todas sus sesiones y rastros internos
-        DELETE FROM auth.identities WHERE user_id = v_admin_id;
-        DELETE FROM auth.sessions WHERE user_id = v_admin_id;
+        UPDATE auth.identities 
+        SET identity_data = jsonb_set(identity_data, '{email}', to_jsonb(safe_email::text)) 
+        WHERE user_id = v_admin_id AND provider = 'email';
         
-        -- Extraemos su nombre antes de borrar su perfil
-        DECLARE 
-            v_admin_fullname TEXT;
-            v_admin_role TEXT;
-            v_can_view BOOLEAN;
-            v_can_create BOOLEAN;
-            v_can_edit BOOLEAN;
-            v_can_delete BOOLEAN;
-        BEGIN
-            SELECT full_name, role, can_view, can_create, can_edit, can_delete 
-            INTO v_admin_fullname, v_admin_role, v_can_view, v_can_create, v_can_edit, v_can_delete
-            FROM public.profiles WHERE id = v_admin_id;
-            
-            -- Borramos de public
-            DELETE FROM public.profiles WHERE id = v_admin_id;
-            
-            -- Borramos de auth
-            DELETE FROM auth.users WHERE id = v_admin_id;
-            
-            -- 2. Lo re-creamos por completo
-            v_new_user_id := gen_random_uuid();
-            
-            INSERT INTO auth.users (
-                instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, 
-                raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
-                confirmation_token, email_change, email_change_token_new, recovery_token,
-                last_sign_in_at, recovery_sent_at
-            ) VALUES (
-                '00000000-0000-0000-0000-000000000000', v_new_user_id, 'authenticated', 'authenticated', 
-                v_final_email, extensions.crypt(TRIM(p_admin_password), extensions.gen_salt('bf')), now(), 
-                '{"provider":"email","providers":["email"]}', 
-                jsonb_build_object('full_name', v_admin_fullname), now(), now(),
-                '', '', '', '', now(), now()
-            );
-
-            INSERT INTO auth.identities (
-                id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at
-            ) VALUES (
-                gen_random_uuid(), v_new_user_id::text, v_new_user_id, 
-                jsonb_build_object('sub', v_new_user_id::text, 'email', v_final_email), 
-                'email', now(), now(), now()
-            );
-
-            INSERT INTO public.profiles (id, company_id, role, full_name, can_view, can_create, can_edit, can_delete)
-            VALUES (v_new_user_id, p_company_id, v_admin_role, v_admin_fullname, v_can_view, v_can_create, v_can_edit, v_can_delete);
-            
-            v_admin_id := v_new_user_id; -- Para devolver el nuevo ID
-        END;
+        v_email_changed := true;
     END IF;
 
     RETURN json_build_object(
