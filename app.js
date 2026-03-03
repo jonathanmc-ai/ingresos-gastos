@@ -409,12 +409,15 @@ async function saveTransaction() {
         return;
     }
 
+    const activeCompanyId = (userProfile.role === 'superadmin' && auditCompanyId) ? auditCompanyId : userProfile.company_id;
+
     const transactionData = {
         amount: rawAmount,
         description: descInput || null,
         date: dateInput || new Date().toISOString().split('T')[0],
         type: type,
-        category_id: categoryId
+        category_id: categoryId,
+        company_id: activeCompanyId
     };
 
     const { error } = await supabaseClient

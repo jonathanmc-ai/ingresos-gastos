@@ -65,6 +65,17 @@ BEGIN
       can_edit = EXCLUDED.can_edit,
       can_delete = EXCLUDED.can_delete;
 
+    -- Añadir categorías por defecto a la nueva empresa
+    INSERT INTO public.categories (name, icon, color, type, company_id) VALUES
+      ('Salario', '💰', '#10b981', 'income', new_company_id),
+      ('Freelance', '💻', '#3b82f6', 'income', new_company_id),
+      ('Alimentación', '🍕', '#f97316', 'expense', new_company_id),
+      ('Hogar', '🏠', '#3b82f6', 'expense', new_company_id),
+      ('Transporte', '🚗', '#10b981', 'expense', new_company_id),
+      ('Ocio', '🎮', '#a855f7', 'expense', new_company_id),
+      ('Salud', '💊', '#ef4444', 'expense', new_company_id),
+      ('Otros', '📦', '#eab308', 'expense', new_company_id);
+
     RETURN json_build_object('success', true, 'company_id', new_company_id, 'user_id', new_user_id, 'email', safe_email);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
