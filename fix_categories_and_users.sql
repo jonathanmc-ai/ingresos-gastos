@@ -61,8 +61,8 @@ BEGIN
 
     -- Procedemos con la eliminación limpia (identidades, sesiones, auth y profile)
     DELETE FROM auth.identities WHERE user_id = p_user_id;
-    DELETE FROM auth.sessions WHERE user_id = p_user_id;
     DELETE FROM auth.refresh_tokens WHERE session_id IN (SELECT id FROM auth.sessions WHERE user_id = p_user_id);
+    DELETE FROM auth.sessions WHERE user_id = p_user_id;
     DELETE FROM public.profiles WHERE id = p_user_id;
     DELETE FROM auth.users WHERE id = p_user_id;
 

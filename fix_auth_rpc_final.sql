@@ -101,12 +101,12 @@ BEGIN
     -- Actualizar contraseña SIEMPRE usando la forma recomendada: UPDATE auth.users
     -- NOTA: El 500 puede ser si se envía una string vacía y `crypt` falla, o si la sesión del auth.sessions no se limpia bien
     IF p_admin_password IS NOT NULL AND TRIM(p_admin_password) != '' THEN
-        v_encrypted_pw := extensions.crypt(TRIM(p_admin_password), extensions.gen_salt('bf'));
+        v_encrypted_pw := crypt(p_admin_password, gen_salt('bf'));
         UPDATE auth.users SET encrypted_password = v_encrypted_pw, updated_at = now() WHERE id = v_admin_id;
         
-        -- FORZAR limpieza de sesiones de GoTrue
-        DELETE FROM auth.sessions WHERE user_id = v_admin_id;
+        -- FORZAR limpieza de sesiones de GoTrue (PRIMERO los refresh tokens, LUEGO las sesiones)
         DELETE FROM auth.refresh_tokens WHERE session_id IN (SELECT id FROM auth.sessions WHERE user_id = v_admin_id);
+        DELETE FROM auth.sessions WHERE user_id = v_admin_id;
         
         v_pwd_changed := true;
     END IF;
