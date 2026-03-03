@@ -4,7 +4,7 @@
 -- Variables (Cambia el email y la contraseña según lo que necesites)
 DO $$
 DECLARE
-    v_admin_email TEXT := 'sebastinam2s@icloud.com';
+    v_admin_email TEXT := 'sebastianm2s@icloud.com';
     v_admin_password TEXT := 'Voxera_2026*secure';
     v_admin_name TEXT := 'Sebastian';
     v_user_id UUID := gen_random_uuid();
