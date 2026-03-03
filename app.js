@@ -498,15 +498,21 @@ window.renderCategoriesView = function () {
         const typeBg = cat.type === 'income' ? 'var(--green-bg)' : 'var(--orange-bg)';
 
         const html = `
-            <div class="card" style="display: flex; align-items: center; gap: 16px; padding: 16px;">
-                <div style="background:${cat.color}20; color:${cat.color}; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
-                    ${cat.icon}
+            <div class="card category-item-card" style="display: flex; align-items: center; justify-content: space-between; padding: 16px;">
+                <div style="display: flex; gap: 16px; align-items: center;">
+                    <div style="background:${cat.color}20; color:${cat.color}; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                        ${cat.icon}
+                    </div>
+                    <div>
+                        <h4 style="font-weight: 600; font-size: 16px; margin-bottom: 4px;">${cat.name}</h4>
+                        <span style="background:${typeBg}; color:${typeColor}; font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 500;">
+                            ${typeLabel}
+                        </span>
+                    </div>
                 </div>
-                <div>
-                    <h4 style="font-weight: 600; font-size: 16px; margin-bottom: 4px;">${cat.name}</h4>
-                    <span style="background:${typeBg}; color:${typeColor}; font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 500;">
-                        ${typeLabel}
-                    </span>
+                <div class="category-actions" style="display: flex; gap: 8px;">
+                    <button class="btn btn-outline" style="padding: 6px 10px; font-size: 12px; border-color: var(--border);" onclick="editCategory('${cat.id}')">Editar</button>
+                    ${userProfile?.can_delete ? `<button class="btn btn-outline" style="padding: 6px 10px; font-size: 12px; border-color: var(--red); color: var(--red);" onclick="deleteCategory('${cat.id}')">Eliminar</button>` : ''}
                 </div>
             </div>
         `;
@@ -514,11 +520,65 @@ window.renderCategoriesView = function () {
     });
 };
 
+window.editCategory = function (id) {
+    const cat = categories.find(c => c.id === id);
+    if (!cat) return;
+
+    // We will reuse the category modal for editing by adding a hidden ID field
+    document.getElementById('categoryModal').classList.add('active');
+    document.querySelector('#categoryModal .modal-title').textContent = "Editar Categoría";
+    document.getElementById('catNameInput').value = cat.name;
+    document.getElementById('catIconInput').value = cat.icon;
+    document.getElementById('catColorInput').value = cat.color;
+
+    // Configurar el tipo
+    document.querySelectorAll('#categoryModal .type-btn').forEach(b => b.classList.remove('active'));
+    if (cat.type === 'income') {
+        document.getElementById('btn-cat-income').classList.add('active');
+    } else {
+        document.getElementById('btn-cat-expense').classList.add('active');
+    }
+
+    // Guardar el ID en el botón de guardar
+    const saveBtn = document.getElementById('btn-save-cat-modal');
+    saveBtn.setAttribute('data-edit-id', id);
+    saveBtn.textContent = 'Actualizar';
+};
+
+window.deleteCategory = async function (id) {
+    if (!userProfile || !userProfile.can_delete) {
+        alert("No tienes permisos para eliminar categorías.");
+        return;
+    }
+
+    if (!confirm("¿Seguro que quieres eliminar esta categoría? Las transacciones asociadas perderán su categoría.")) return;
+
+    const { error } = await supabaseClient
+        .from('categories')
+        .delete()
+        .eq('id', id);
+
+    if (error) {
+        console.error('Error deleting category:', error);
+        alert('Hubo un error al eliminar. ' + error.message);
+        return;
+    }
+
+    await fetchCategories();
+    renderCategoriesView();
+};
+
 window.openCategoryModal = function () {
     document.getElementById('categoryModal').classList.add('active');
+    document.querySelector('#categoryModal .modal-title').textContent = "Nueva Categoría";
     document.getElementById('catNameInput').value = '';
     document.getElementById('catIconInput').value = '🏷️';
     document.getElementById('catColorInput').value = '#3b82f6';
+
+    // Limpiar modo edición
+    const saveBtn = document.getElementById('btn-save-cat-modal');
+    saveBtn.removeAttribute('data-edit-id');
+    saveBtn.textContent = 'Crear';
 };
 
 window.closeCategoryModal = function () {
@@ -531,9 +591,19 @@ window.setCatType = function (el, type) {
 };
 
 window.saveCategory = async function () {
-    if (!userProfile || !userProfile.can_create) {
-        alert("No tienes permisos para crear categorías.");
-        return;
+    const editId = document.getElementById('btn-save-cat-modal').getAttribute('data-edit-id');
+
+    // Check permissions
+    if (editId) {
+        if (!userProfile || !userProfile.can_edit) {
+            alert("No tienes permisos para editar categorías.");
+            return;
+        }
+    } else {
+        if (!userProfile || !userProfile.can_create) {
+            alert("No tienes permisos para crear categorías.");
+            return;
+        }
     }
 
     const name = document.getElementById('catNameInput').value.trim();
@@ -547,24 +617,32 @@ window.saveCategory = async function () {
         return;
     }
 
-    const newCategory = {
+    const categoryPayload = {
         name,
         icon: icon || '🏷️',
         color,
         type
-        // company_id se inserta automáticamente por base de datos o manejado por trigger?
-        // Actualmente RLS exige que en el insert el user pase el company_id, 
-        // a menos que tengamos un trigger, mejor pasarlo explícitamente.
     };
 
-    // Obtenemos el company_id activo (el del user profile o del audit)
-    const activeCompanyId = (userProfile.role === 'superadmin' && auditCompanyId) ? auditCompanyId : userProfile.company_id;
-    newCategory.company_id = activeCompanyId;
+    let error = null;
 
-    const { data, error } = await supabaseClient
-        .from('categories')
-        .insert([newCategory])
-        .select();
+    if (editId) {
+        // Update existing category
+        const { error: updateError } = await supabaseClient
+            .from('categories')
+            .update(categoryPayload)
+            .eq('id', editId);
+        error = updateError;
+    } else {
+        // Insert new category
+        const activeCompanyId = (userProfile.role === 'superadmin' && auditCompanyId) ? auditCompanyId : userProfile.company_id;
+        categoryPayload.company_id = activeCompanyId;
+
+        const { error: insertError } = await supabaseClient
+            .from('categories')
+            .insert([categoryPayload]);
+        error = insertError;
+    }
 
     if (error) {
         console.error('Error saving category:', error);
