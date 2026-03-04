@@ -185,7 +185,7 @@
                                     <th>Ver</th>
                                     <th>Crear</th>
                                     <th>Editar</th>
-                                    <th>Eliminar</th>
+                                    <th>Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="teamMembersList">
@@ -268,6 +268,33 @@
         </div>
     </div>
 
+    <!-- Modal Cambiar Contraseña -->
+    <div class="modal" id="passwordModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Cambiar Contraseña</h2>
+                <p style="color: var(--text-muted); font-size: 14px; margin-top: 4px;" id="passwordModalSubName">
+                    Actualizando contraseña para...</p>
+            </div>
+
+            <form id="updatePasswordForm">
+                <input type="hidden" id="editUserId" />
+                <div class="form-group">
+                    <label class="form-label" for="editUserPassword">Nueva Contraseña</label>
+                    <input class="form-input" type="password" id="editUserPassword" placeholder="Min. 6 caracteres"
+                        required minlength="6" />
+                </div>
+
+                <div id="passwordStatusMessage"
+                    style="margin-top: 16px; padding: 12px; border-radius: 8px; display: none;"></div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-ghost" onclick="closePasswordModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btnUpdatePassword">Actualizar</button>
+                </div>
+            </form>
+        </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="config.js"></script>
     <script>
@@ -327,10 +354,15 @@
                 const checkIcon = '<span style="color: var(--green);">✔️</span>';
                 const crossIcon = '<span style="color: var(--text-muted); opacity: 0.5;">✖️</span>';
 
-                // Botón de eliminar, solo si no eres tú mismo ni superadmin
-                let deleteHtml = '-';
-                if (!isSuperadmin && member.id !== session.user.id) {
-                    deleteHtml = `<button class="btn btn-ghost" style="color: var(--red); padding: 4px 8px; font-size: 13px; border: 1px solid var(--red-bg);" onclick="deleteEmployee('${member.id}', '${member.full_name?.replace(/'/g, "\\'") || ''}')">Eliminar</button>`;
+                // Acciones de eliminar y contraseña, solo si no eres tú mismo ni superadmin
+                let actionsHtml = '-';
+                if (!isSuperadmin && member.id !== userProfile.id) {
+                    actionsHtml = `
+                        <div style="display: flex; gap: 4px;">
+                            <button class="btn btn-ghost" style="color: var(--blue); padding: 4px 8px; font-size: 13px; border: 1px solid var(--blue-bg);" onclick="openPasswordModal('${member.id}', '${member.full_name?.replace(/'/g, "\\'") || ''}')">Clave</button>
+                            <button class="btn btn-ghost" style="color: var(--red); padding: 4px 8px; font-size: 13px; border: 1px solid var(--red-bg);" onclick="deleteEmployee('${member.id}', '${member.full_name?.replace(/'/g, "\\'") || ''}')">Eliminar</button>
+                        </div>
+                    `;
                 }
 
                 row.innerHTML = `
@@ -339,7 +371,7 @@
           <td>${member.can_view ? checkIcon : crossIcon}</td>
           <td>${member.can_create ? checkIcon : crossIcon}</td>
           <td>${member.can_edit ? checkIcon : crossIcon}</td>
-          <td>${deleteHtml}</td>
+          <td>${actionsHtml}</td>
         `;
                 tbody.appendChild(row);
             });
@@ -355,6 +387,51 @@
             document.getElementById('createUserForm').reset();
             document.getElementById('statusMessage').style.display = 'none';
         }
+
+        // 4.5 Lógica del Modal de Contraseña
+        function openPasswordModal(id, name) {
+            document.getElementById('editUserId').value = id;
+            document.getElementById('passwordModalSubName').textContent = `Actualizando contraseña para: ${name}`;
+            document.getElementById('passwordModal').classList.add('active');
+        }
+
+        function closePasswordModal() {
+            document.getElementById('passwordModal').classList.remove('active');
+            document.getElementById('updatePasswordForm').reset();
+            document.getElementById('passwordStatusMessage').style.display = 'none';
+        }
+
+        document.getElementById('updatePasswordForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const btn = document.getElementById('btnUpdatePassword');
+            const statusMsg = document.getElementById('passwordStatusMessage');
+
+            const userId = document.getElementById('editUserId').value;
+            const pass = document.getElementById('editUserPassword').value;
+
+            btn.disabled = true;
+            btn.textContent = 'Actualizando...';
+
+            const { data, error } = await supabaseClient.rpc('update_company_user_password', {
+                p_user_id: userId,
+                p_new_password: pass
+            });
+
+            if (error) {
+                statusMsg.textContent = 'Error: ' + error.message;
+                statusMsg.style.background = 'var(--red-bg)';
+                statusMsg.style.color = 'var(--red)';
+                statusMsg.style.display = 'block';
+                btn.disabled = false;
+                btn.textContent = 'Actualizar';
+            } else {
+                closePasswordModal();
+                alert('Contraseña actualizada con éxito');
+                btn.disabled = false;
+                btn.textContent = 'Actualizar';
+            }
+        });
 
         // 6. Eliminar Empleado
         async function deleteEmployee(userId, userName) {
