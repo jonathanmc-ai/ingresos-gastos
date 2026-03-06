@@ -174,8 +174,60 @@ function updateDashboardUI() {
     renderRecentTransactions();
     // Actualizar Categorías
     renderCategoryProgress(totalExpense);
+    // Actualizar Gráfico
+    renderDashboardChart();
+}
 
-    // (Nota: El gráfico visual sigue estático por el momento en el DOM de maqueta)
+// 3.b Renderizar Gráfico de Ingresos vs Gastos (Últimos 6 meses)
+function renderDashboardChart() {
+    const chartContainer = document.getElementById('dashboardChartContainer');
+    if (!chartContainer) return;
+
+    chartContainer.innerHTML = '';
+
+    const now = new Date();
+    const last6Months = [];
+
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        last6Months.push({
+            month: d.getMonth(),
+            year: d.getFullYear(),
+            label: d.toLocaleDateString('es-ES', { month: 'short' }),
+            income: 0,
+            expense: 0
+        });
+    }
+
+    // Agrupar datos por mes
+    transactions.forEach(t => {
+        const tDate = new Date(t.date);
+        const mIdx = last6Months.findIndex(m => m.month === tDate.getMonth() && m.year === tDate.getFullYear());
+
+        if (mIdx !== -1) {
+            if (t.type === 'income') last6Months[mIdx].income += parseFloat(t.amount);
+            else last6Months[mIdx].expense += parseFloat(t.amount);
+        }
+    });
+
+    // Encontrar el valor máximo para escalar las barras (mínimo 100 para evitar división por 0)
+    const maxVal = Math.max(...last6Months.map(m => Math.max(m.income, m.expense)), 100);
+
+    last6Months.forEach(m => {
+        const incHeight = (m.income / maxVal) * 100;
+        const expHeight = (m.expense / maxVal) * 100;
+
+        const html = `
+            <div class="chart-bar-group">
+                <div class="bar-pair">
+                    <div class="bar income" style="height:${incHeight}%" title="Ingresos: €${m.income.toFixed(2)}"></div>
+                    <div class="bar expense" style="height:${expHeight}%" title="Gastos: €${m.expense.toFixed(2)}"></div>
+                </div>
+                <span class="bar-label">${m.label.charAt(0).toUpperCase() + m.label.slice(1)}</span>
+            </div>
+        `;
+        chartContainer.insertAdjacentHTML('beforeend', html);
+    });
 }
 
 // 4. Renderizar Transacciones Recientes (Máx 5)
@@ -219,6 +271,7 @@ function renderRecentTransactions() {
         </div>
       </div>
     `;
+        listContainer.insertAdjacentHTML('beforeend', html);
     });
 }
 
@@ -266,6 +319,12 @@ function renderFullTransactions(filter = 'all') {
         <td style="padding: 16px; border-bottom: 1px solid var(--border); color: var(--text-secondary);">${catName}</td>
         <td style="padding: 16px; border-bottom: 1px solid var(--border); text-align: right; font-weight: 600;" class="${amountClass}">
           ${prefix}€${parseFloat(t.amount).toFixed(2).replace('.', ',')}
+        </td>
+        <td style="padding: 16px; border-bottom: 1px solid var(--border); text-align: right;">
+          <div style="display: flex; gap: 8px; justify-content: flex-end;">
+            <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="editTransaction('${t.id}')">✏️</button>
+            <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px; color: var(--red); border-color: var(--red)20;" onclick="deleteTransaction('${t.id}')">🗑️</button>
+          </div>
         </td>
       </tr>
     `;
@@ -409,6 +468,8 @@ async function saveTransaction() {
         return;
     }
 
+    const saveBtn = document.getElementById('btn-save-modal');
+    const editId = saveBtn.getAttribute('data-edit-id');
     const activeCompanyId = (userProfile.role === 'superadmin' && auditCompanyId) ? auditCompanyId : userProfile.company_id;
 
     const transactionData = {
@@ -420,9 +481,20 @@ async function saveTransaction() {
         company_id: activeCompanyId
     };
 
-    const { error } = await supabaseClient
-        .from('transactions')
-        .insert([transactionData]);
+    let error = null;
+
+    if (editId) {
+        const { error: updateError } = await supabaseClient
+            .from('transactions')
+            .update(transactionData)
+            .eq('id', editId);
+        error = updateError;
+    } else {
+        const { error: insertError } = await supabaseClient
+            .from('transactions')
+            .insert([transactionData]);
+        error = insertError;
+    }
 
     if (error) {
         console.error('Error saving transaction:', error);
@@ -444,11 +516,70 @@ async function saveTransaction() {
 // Hookeando las funciones globales del HTML para el Modal
 window.openModal = function () {
     document.getElementById('modal').classList.add('active');
+    document.querySelector('#modal .modal-title').textContent = "Nueva Transacción";
+
+    // Limpiar estado de edición
+    const saveBtn = document.getElementById('btn-save-modal');
+    saveBtn.removeAttribute('data-edit-id');
+    saveBtn.textContent = 'Guardar';
+
     // Por defecto carga categorías de Gasto
     const currentType = document.querySelector('.type-btn.income-type').classList.contains('active') ? 'income' : 'expense';
     updateModalCategories(currentType);
     // Poner fecha de hoy
     document.querySelector('.form-input[type="date"]').value = new Date().toISOString().split('T')[0];
+};
+
+window.editTransaction = function (id) {
+    const t = transactions.find(txn => txn.id === id);
+    if (!t) return;
+
+    document.getElementById('modal').classList.add('active');
+    document.querySelector('#modal .modal-title').textContent = "Editar Transacción";
+
+    // Marcar como edición
+    const saveBtn = document.getElementById('btn-save-modal');
+    saveBtn.setAttribute('data-edit-id', id);
+    saveBtn.textContent = 'Actualizar';
+
+    // Rellenar campos
+    document.querySelector('.amount-input').value = `€${parseFloat(t.amount).toFixed(2).replace('.', ',')}`;
+    document.querySelector('.form-input[placeholder="Ej: Compra semanal..."]').value = t.description || '';
+    document.querySelector('.form-input[type="date"]').value = t.date;
+
+    // Set type
+    const incomeBtn = document.querySelector('.type-btn.income-type');
+    const expenseBtn = document.querySelector('.type-btn.expense-type');
+    if (t.type === 'income') {
+        setType(incomeBtn, 'income');
+    } else {
+        setType(expenseBtn, 'expense');
+    }
+
+    // Seleccionar categoría (pill)
+    setTimeout(() => {
+        const pill = document.querySelector(`.cat-pill[data-id="${t.category_id}"]`);
+        if (pill) selectPill(pill);
+    }, 100);
+};
+
+window.deleteTransaction = async function (id) {
+    if (!confirm('¿Estás seguro de que deseas eliminar esta transacción?')) return;
+
+    const { error } = await supabaseClient
+        .from('transactions')
+        .delete()
+        .eq('id', id);
+
+    if (error) {
+        console.error('Error deleting transaction:', error);
+        alert('Error al eliminar la transacción.');
+        return;
+    }
+
+    await fetchTransactions();
+    updateDashboardUI();
+    renderFullTransactions();
 };
 
 window.closeModal = function () {

@@ -1184,7 +1184,8 @@
               </div>
             </div>
             <div class="chart-placeholder">
-              <div class="chart-bars">
+              <div class="chart-bars" id="dashboardChartContainer">
+                <!-- Data injected by JS -->
                 <div class="chart-bar-group">
                   <div class="bar-pair">
                     <div class="bar income" style="height:60%"></div>
@@ -1414,6 +1415,9 @@
                     <th
                       style="padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 600; font-size: 13px; text-align: right;">
                       Monto</th>
+                    <th
+                      style="padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-weight: 600; font-size: 13px; text-align: right;">
+                      Acciones</th>
                   </tr>
                 </thead>
                 <tbody id="fullTransactionsList">
