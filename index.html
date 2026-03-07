@@ -1126,11 +1126,10 @@
           <button class="hamburger" onclick="toggleSidebar()">☰</button>
           <div class="topbar-left">
             <h2>Dashboard</h2>
-            <p>Febrero 2026</p>
+            <p>Cargando...</p>
           </div>
         </div>
         <div class="topbar-right">
-          <button class="btn btn-ghost">📅 Este mes</button>
           <button class="btn btn-primary" onclick="openModal()">+ Nueva transacción</button>
         </div>
       </header>
@@ -1177,10 +1176,24 @@
           <div class="chart-section">
             <div class="section-header">
               <h3 class="section-title">Ingresos vs Gastos</h3>
-              <div class="chart-tabs">
-                <button class="chart-tab">Semana</button>
-                <button class="chart-tab active">Mes</button>
-                <button class="chart-tab">Año</button>
+              <div class="chart-tabs" id="dashboardFilterTabs">
+                <button class="chart-tab" onclick="setDashboardFilter('week', this)">Semana</button>
+                <button class="chart-tab active" onclick="setDashboardFilter('month', this)">Mes</button>
+                <button class="chart-tab" onclick="setDashboardFilter('year', this)">Año</button>
+                <button class="chart-tab" onclick="setDashboardFilter('all', this)">Todo</button>
+                <button class="chart-tab" onclick="setDashboardFilter('custom', this)">📅 Personalizado</button>
+              </div>
+              <!-- Custom date range picker (hidden by default) -->
+              <div id="customDateRange"
+                style="display:none; margin-top:12px; display:none; gap:12px; align-items:center; flex-wrap:wrap;">
+                <label style="font-size:13px; color:var(--text-muted);">Desde:</label>
+                <input type="date" id="dashFilterFrom" class="form-input"
+                  style="width:auto; padding:8px 12px; font-size:13px;">
+                <label style="font-size:13px; color:var(--text-muted);">Hasta:</label>
+                <input type="date" id="dashFilterTo" class="form-input"
+                  style="width:auto; padding:8px 12px; font-size:13px;">
+                <button class="btn btn-primary" style="padding:8px 16px; font-size:13px;"
+                  onclick="applyCustomDateFilter()">Aplicar</button>
               </div>
             </div>
             <div class="chart-placeholder">
@@ -1693,10 +1706,10 @@
       }
 
       document.querySelector('.topbar-left h2').textContent = titles[viewId] || 'Dashboard';
-      document.querySelector('.topbar-left p').textContent = viewId === 'dashboard' ? new Date().toLocaleDateString('es-ES', {
+      document.querySelector('.topbar-left p').textContent = viewId === 'dashboard' && typeof getFilterLabel === 'function' ? getFilterLabel() : (viewId === 'dashboard' ? new Date().toLocaleDateString('es-ES', {
         month: 'long',
         year: 'numeric'
-      }) : '';
+      }) : '');
 
       if (!isMobile && window.innerWidth <= 768) {
         toggleSidebar();

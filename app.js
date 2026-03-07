@@ -6,7 +6,9 @@
 let transactions = [];
 let categories = [];
 let userProfile = null;
-let currentFilter = 'month'; // 'week', 'month', 'year'
+let currentFilter = 'month'; // 'week', 'month', 'year', 'all', 'custom'
+let customDateFrom = null;
+let customDateTo = null;
 
 // Variables de Auditoría
 let auditCompanyId = localStorage.getItem('audit_company_id');
@@ -143,22 +145,136 @@ async function fetchTransactions() {
     transactions = data;
 }
 
-// 3. Actualizar la UI del Dashboard
+// Helper para parsear fechas sin problemas de zona horaria
+// new Date('2026-03-07') se interpreta como UTC, lo que en UTC+1 (España) puede dar el día/mes anterior
+function parseLocalDate(dateStr) {
+    if (!dateStr) return new Date();
+    const parts = String(dateStr).split('-');
+    return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2] || 1));
+}
+
+// Helper para obtener la fecha local de hoy como 'YYYY-MM-DD' sin desfase UTC
+function todayLocalStr() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+// 3. Obtener transacciones filtradas según el filtro activo del Dashboard
+function getFilteredTransactions() {
+    const now = new Date();
+
+    if (currentFilter === 'all') {
+        return transactions;
+    }
+
+    if (currentFilter === 'custom' && customDateFrom && customDateTo) {
+        const from = parseLocalDate(customDateFrom);
+        const to = parseLocalDate(customDateTo);
+        // Set "to" to end of day
+        to.setHours(23, 59, 59, 999);
+        return transactions.filter(t => {
+            const d = parseLocalDate(t.date);
+            return d >= from && d <= to;
+        });
+    }
+
+    if (currentFilter === 'week') {
+        // Últimos 7 días
+        const weekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+        return transactions.filter(t => {
+            const d = parseLocalDate(t.date);
+            return d >= weekAgo && d <= now;
+        });
+    }
+
+    if (currentFilter === 'year') {
+        // Año actual completo
+        return transactions.filter(t => {
+            const d = parseLocalDate(t.date);
+            return d.getFullYear() === now.getFullYear();
+        });
+    }
+
+    // Default: 'month' — Mes actual
+    return transactions.filter(t => {
+        const d = parseLocalDate(t.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+}
+
+// 3.a Obtener texto descriptivo del filtro activo
+function getFilterLabel() {
+    const now = new Date();
+    if (currentFilter === 'week') return 'Últimos 7 días';
+    if (currentFilter === 'year') return now.getFullYear().toString();
+    if (currentFilter === 'all') return 'Todo el historial';
+    if (currentFilter === 'custom' && customDateFrom && customDateTo) {
+        const from = parseLocalDate(customDateFrom);
+        const to = parseLocalDate(customDateTo);
+        const fmt = (d) => d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+        return `${fmt(from)} — ${fmt(to)}`;
+    }
+    // Default: month
+    return now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+}
+
+// 3.b Cambiar el filtro del Dashboard
+window.setDashboardFilter = function (filter, el) {
+    currentFilter = filter;
+
+    // Actualizar botones activos
+    document.querySelectorAll('#dashboardFilterTabs .chart-tab').forEach(b => b.classList.remove('active'));
+    if (el) el.classList.add('active');
+
+    // Mostrar/ocultar picker de fechas personalizado
+    const customPicker = document.getElementById('customDateRange');
+    if (customPicker) {
+        customPicker.style.display = filter === 'custom' ? 'flex' : 'none';
+    }
+
+    // Si no es custom, actualizar directamente
+    if (filter !== 'custom') {
+        updateDashboardUI();
+    }
+};
+
+// 3.c Aplicar filtro de fechas personalizado
+window.applyCustomDateFilter = function () {
+    const fromInput = document.getElementById('dashFilterFrom');
+    const toInput = document.getElementById('dashFilterTo');
+
+    if (!fromInput.value || !toInput.value) {
+        alert('Por favor selecciona ambas fechas (Desde y Hasta).');
+        return;
+    }
+
+    if (fromInput.value > toInput.value) {
+        alert('La fecha "Desde" no puede ser posterior a la fecha "Hasta".');
+        return;
+    }
+
+    customDateFrom = fromInput.value;
+    customDateTo = toInput.value;
+    currentFilter = 'custom';
+    updateDashboardUI();
+};
+
+// 3.d Actualizar la UI del Dashboard
 function updateDashboardUI() {
     if (!document.getElementById('view-dashboard').classList.contains('active')) return;
 
-    // Filtrar según el mes actual (por defecto para el resumen)
-    const now = new Date();
-    const currentMonthTxns = transactions.filter(t => {
-        const d = new Date(t.date);
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    });
+    // Filtrar transacciones según el filtro activo
+    const filteredTxns = getFilteredTransactions();
+
+    // Actualizar subtítulo del topbar
+    const topbarSub = document.querySelector('.topbar-left p');
+    if (topbarSub) topbarSub.textContent = getFilterLabel();
 
     // Calcular totales
     let totalIncome = 0;
     let totalExpense = 0;
 
-    currentMonthTxns.forEach(t => {
+    filteredTxns.forEach(t => {
         if (t.type === 'income') totalIncome += parseFloat(t.amount);
         else if (t.type === 'expense') totalExpense += parseFloat(t.amount);
     });
@@ -170,10 +286,10 @@ function updateDashboardUI() {
     document.querySelector('.summary-card.expense .card-amount').textContent = `€${totalExpense.toFixed(2).replace('.', ',')}`;
     document.querySelector('.summary-card.balance .card-amount').textContent = `€${balance.toFixed(2).replace('.', ',')}`;
 
-    // Actualizar Lista de Últimas Transacciones
-    renderRecentTransactions();
-    // Actualizar Categorías
-    renderCategoryProgress(totalExpense);
+    // Actualizar Lista de Últimas Transacciones (las últimas 5 del rango filtrado)
+    renderRecentTransactions(filteredTxns);
+    // Actualizar Categorías (gastos del rango filtrado)
+    renderCategoryProgress(totalExpense, filteredTxns);
     // Actualizar Gráfico
     renderDashboardChart();
 }
@@ -201,7 +317,7 @@ function renderDashboardChart() {
 
     // Agrupar datos por mes
     transactions.forEach(t => {
-        const tDate = new Date(t.date);
+        const tDate = parseLocalDate(t.date);
         const mIdx = last6Months.findIndex(m => m.month === tDate.getMonth() && m.year === tDate.getFullYear());
 
         if (mIdx !== -1) {
@@ -231,18 +347,20 @@ function renderDashboardChart() {
 }
 
 // 4. Renderizar Transacciones Recientes (Máx 5)
-function renderRecentTransactions() {
+function renderRecentTransactions(txnSource) {
     const listContainer = document.querySelector('.txn-list');
     if (!listContainer) return;
 
     listContainer.innerHTML = '';
 
-    if (transactions.length === 0) {
-        listContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">No hay transacciones todavía.</div>';
+    const source = txnSource || transactions;
+
+    if (source.length === 0) {
+        listContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">No hay transacciones en este periodo.</div>';
         return;
     }
 
-    const recentTxns = transactions.slice(0, 5);
+    const recentTxns = source.slice(0, 5);
 
     recentTxns.forEach(t => {
         const isIncome = t.type === 'income';
@@ -255,7 +373,7 @@ function renderRecentTransactions() {
         const catColor = t.categories ? t.categories.color : (isIncome ? '#10b981' : '#ef4444');
 
         // Formatear fecha
-        const d = new Date(t.date);
+        const d = parseLocalDate(t.date);
         const dateStr = d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 
         const html = `
@@ -302,7 +420,7 @@ function renderFullTransactions(filter = 'all') {
         const catIcon = t.categories ? t.categories.icon : '📌';
 
         // Formatear fecha
-        const d = new Date(t.date);
+        const d = parseLocalDate(t.date);
         const dateStr = d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 
         const html = `
@@ -348,35 +466,32 @@ window.setTxnFilter = function (filter) {
 };
 
 // 5. Renderizar Progreso por Categorías (Solo Gastos)
-function renderCategoryProgress(totalExpense) {
+function renderCategoryProgress(totalExpense, txnSource) {
     const catListContainer = document.querySelector('.category-list');
     if (!catListContainer) return;
 
     catListContainer.innerHTML = '';
 
     if (totalExpense === 0) {
-        catListContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">No hay gastos para mostrar este mes.</div>';
+        catListContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">No hay gastos en este periodo.</div>';
         return;
     }
 
-    // Agrupar gastos actuales por categoría
-    const now = new Date();
+    // Agrupar gastos del rango filtrado por categoría
+    const source = txnSource || transactions;
     const expensesByCategory = {};
 
-    transactions.forEach(t => {
+    source.forEach(t => {
         if (t.type !== 'expense') return;
-        const d = new Date(t.date);
-        if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
-            const catId = t.category_id || 'unknown';
-            if (!expensesByCategory[catId]) {
-                expensesByCategory[catId] = {
-                    name: t.categories ? t.categories.name : 'Otros',
-                    color: t.categories ? t.categories.color : '#eab308',
-                    amount: 0
-                };
-            }
-            expensesByCategory[catId].amount += parseFloat(t.amount);
+        const catId = t.category_id || 'unknown';
+        if (!expensesByCategory[catId]) {
+            expensesByCategory[catId] = {
+                name: t.categories ? t.categories.name : 'Otros',
+                color: t.categories ? t.categories.color : '#eab308',
+                amount: 0
+            };
         }
+        expensesByCategory[catId].amount += parseFloat(t.amount);
     });
 
     // Convertir a array y ordenar de mayor a menor gasto
@@ -475,7 +590,7 @@ async function saveTransaction() {
     const transactionData = {
         amount: rawAmount,
         description: descInput || null,
-        date: dateInput || new Date().toISOString().split('T')[0],
+        date: dateInput || todayLocalStr(),
         type: type,
         category_id: categoryId,
         company_id: activeCompanyId
@@ -527,7 +642,7 @@ window.openModal = function () {
     const currentType = document.querySelector('.type-btn.income-type').classList.contains('active') ? 'income' : 'expense';
     updateModalCategories(currentType);
     // Poner fecha de hoy
-    document.querySelector('.form-input[type="date"]').value = new Date().toISOString().split('T')[0];
+    document.querySelector('.form-input[type="date"]').value = todayLocalStr();
 };
 
 window.editTransaction = function (id) {
@@ -855,7 +970,7 @@ window.renderReportsView = function () {
         const catName = t.categories ? t.categories.name : 'Otra';
         const catColor = t.categories ? t.categories.color : '#eab308';
         const catIcon = t.categories ? t.categories.icon : '📌';
-        const d = new Date(t.date);
+        const d = parseLocalDate(t.date);
         const dateStr = d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 
         // Medalla para el Top 1, 2 y 3
