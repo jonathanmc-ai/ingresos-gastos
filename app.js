@@ -162,6 +162,7 @@ function todayLocalStr() {
 // 3. Obtener transacciones filtradas según el filtro activo del Dashboard
 function getFilteredTransactions() {
     const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     if (currentFilter === 'all') {
         return transactions;
@@ -170,7 +171,6 @@ function getFilteredTransactions() {
     if (currentFilter === 'custom' && customDateFrom && customDateTo) {
         const from = parseLocalDate(customDateFrom);
         const to = parseLocalDate(customDateTo);
-        // Set "to" to end of day
         to.setHours(23, 59, 59, 999);
         return transactions.filter(t => {
             const d = parseLocalDate(t.date);
@@ -178,17 +178,49 @@ function getFilteredTransactions() {
         });
     }
 
-    if (currentFilter === 'week') {
-        // Últimos 7 días
-        const weekAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+    if (currentFilter === 'today') {
         return transactions.filter(t => {
             const d = parseLocalDate(t.date);
-            return d >= weekAgo && d <= now;
+            return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+        });
+    }
+
+    if (currentFilter === 'last7') {
+        const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6);
+        return transactions.filter(t => {
+            const d = parseLocalDate(t.date);
+            return d >= from && d <= now;
+        });
+    }
+
+    if (currentFilter === 'last30') {
+        const from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29);
+        return transactions.filter(t => {
+            const d = parseLocalDate(t.date);
+            return d >= from && d <= now;
+        });
+    }
+
+    if (currentFilter === 'thisWeek') {
+        // Lunes de esta semana hasta hoy
+        const dayOfWeek = today.getDay(); // 0=dom, 1=lun...
+        const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - diffToMonday);
+        return transactions.filter(t => {
+            const d = parseLocalDate(t.date);
+            return d >= monday && d <= now;
+        });
+    }
+
+    if (currentFilter === 'lastMonth') {
+        const lastM = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        return transactions.filter(t => {
+            const d = parseLocalDate(t.date);
+            return d.getMonth() === lastM.getMonth() && d.getFullYear() === lastM.getFullYear();
         });
     }
 
     if (currentFilter === 'year') {
-        // Año actual completo
         return transactions.filter(t => {
             const d = parseLocalDate(t.date);
             return d.getFullYear() === now.getFullYear();
@@ -205,8 +237,15 @@ function getFilteredTransactions() {
 // 3.a Obtener texto descriptivo del filtro activo
 function getFilterLabel() {
     const now = new Date();
-    if (currentFilter === 'week') return 'Últimos 7 días';
-    if (currentFilter === 'year') return now.getFullYear().toString();
+    if (currentFilter === 'today') return 'Hoy — ' + now.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+    if (currentFilter === 'last7') return 'Últimos 7 días';
+    if (currentFilter === 'last30') return 'Últimos 30 días';
+    if (currentFilter === 'thisWeek') return 'Esta semana';
+    if (currentFilter === 'lastMonth') {
+        const lastM = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        return lastM.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    }
+    if (currentFilter === 'year') return 'Año ' + now.getFullYear();
     if (currentFilter === 'all') return 'Todo el historial';
     if (currentFilter === 'custom' && customDateFrom && customDateTo) {
         const from = parseLocalDate(customDateFrom);
@@ -219,6 +258,9 @@ function getFilterLabel() {
 }
 
 // 3.b Cambiar el filtro del Dashboard
+let flatpickrFrom = null;
+let flatpickrTo = null;
+
 window.setDashboardFilter = function (filter, el) {
     currentFilter = filter;
 
@@ -232,6 +274,44 @@ window.setDashboardFilter = function (filter, el) {
         customPicker.style.display = filter === 'custom' ? 'flex' : 'none';
     }
 
+    // Inicializar calendarios Flatpickr cuando se selecciona "Personalizado"
+    if (filter === 'custom' && typeof flatpickr !== 'undefined') {
+        // Destruir instancias anteriores si existen
+        if (flatpickrFrom) flatpickrFrom.destroy();
+        if (flatpickrTo) flatpickrTo.destroy();
+
+        const fpConfig = {
+            locale: 'es',
+            dateFormat: 'd/m/Y',
+            altInput: true,
+            altFormat: 'j M Y',
+            allowInput: false,
+            disableMobile: true,
+            animate: true,
+            theme: 'dark'
+        };
+
+        flatpickrFrom = flatpickr('#dashFilterFrom', {
+            ...fpConfig,
+            defaultDate: customDateFrom || undefined,
+            onChange: function (selectedDates) {
+                if (flatpickrTo && selectedDates[0]) {
+                    flatpickrTo.set('minDate', selectedDates[0]);
+                }
+            }
+        });
+
+        flatpickrTo = flatpickr('#dashFilterTo', {
+            ...fpConfig,
+            defaultDate: customDateTo || undefined,
+            onChange: function (selectedDates) {
+                if (flatpickrFrom && selectedDates[0]) {
+                    flatpickrFrom.set('maxDate', selectedDates[0]);
+                }
+            }
+        });
+    }
+
     // Si no es custom, actualizar directamente
     if (filter !== 'custom') {
         updateDashboardUI();
@@ -240,21 +320,31 @@ window.setDashboardFilter = function (filter, el) {
 
 // 3.c Aplicar filtro de fechas personalizado
 window.applyCustomDateFilter = function () {
-    const fromInput = document.getElementById('dashFilterFrom');
-    const toInput = document.getElementById('dashFilterTo');
+    let fromDate = null;
+    let toDate = null;
 
-    if (!fromInput.value || !toInput.value) {
+    // Leer las fechas de Flatpickr si está disponible
+    if (flatpickrFrom && flatpickrFrom.selectedDates.length > 0) {
+        fromDate = flatpickrFrom.selectedDates[0];
+    }
+    if (flatpickrTo && flatpickrTo.selectedDates.length > 0) {
+        toDate = flatpickrTo.selectedDates[0];
+    }
+
+    if (!fromDate || !toDate) {
         alert('Por favor selecciona ambas fechas (Desde y Hasta).');
         return;
     }
 
-    if (fromInput.value > toInput.value) {
+    if (fromDate > toDate) {
         alert('La fecha "Desde" no puede ser posterior a la fecha "Hasta".');
         return;
     }
 
-    customDateFrom = fromInput.value;
-    customDateTo = toInput.value;
+    // Convertir a formato YYYY-MM-DD para uso interno
+    const toYMD = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    customDateFrom = toYMD(fromDate);
+    customDateTo = toYMD(toDate);
     currentFilter = 'custom';
     updateDashboardUI();
 };

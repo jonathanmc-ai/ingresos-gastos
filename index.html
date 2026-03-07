@@ -7,6 +7,9 @@
   <title>MiFinanzas</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet" />
+  <!-- Flatpickr Calendar -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
   <style>
     /* ===== RESET & BASE ===== */
     *,
@@ -415,14 +418,15 @@
 
     .chart-tabs {
       display: flex;
-      gap: 4px;
+      flex-wrap: wrap;
+      gap: 6px;
       background: var(--bg-secondary);
-      border-radius: 8px;
-      padding: 3px;
+      border-radius: 10px;
+      padding: 4px;
     }
 
     .chart-tab {
-      padding: 6px 14px;
+      padding: 6px 12px;
       border-radius: 6px;
       font-size: 12px;
       font-weight: 500;
@@ -432,11 +436,35 @@
       border: none;
       font-family: inherit;
       transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .chart-tab:hover:not(.active) {
+      color: var(--text-secondary);
+      background: rgba(255, 255, 255, 0.04);
     }
 
     .chart-tab.active {
       background: var(--bg-card-hover);
       color: var(--text-primary);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Flatpickr dark theme overrides */
+    .flatpickr-calendar {
+      font-family: 'Inter', sans-serif !important;
+      border-radius: 12px !important;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5) !important;
+      border: 1px solid var(--border) !important;
+    }
+
+    .flatpickr-calendar.dark {
+      background: var(--bg-card) !important;
+    }
+
+    .flatpickr-day.selected {
+      background: var(--green) !important;
+      border-color: var(--green) !important;
     }
 
     .chart-placeholder {
@@ -1056,6 +1084,9 @@
   <!-- SUPABASE & CONFIG -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
+  <!-- Flatpickr Calendar -->
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
   <!-- APP LOGIC -->
   <script src="app.js"></script>
 
@@ -1174,24 +1205,28 @@
 
           <!-- CHART -->
           <div class="chart-section">
-            <div class="section-header">
+            <div class="section-header" style="flex-direction:column; align-items:flex-start; gap:12px;">
               <h3 class="section-title">Ingresos vs Gastos</h3>
-              <div class="chart-tabs" id="dashboardFilterTabs">
-                <button class="chart-tab" onclick="setDashboardFilter('week', this)">Semana</button>
-                <button class="chart-tab active" onclick="setDashboardFilter('month', this)">Mes</button>
-                <button class="chart-tab" onclick="setDashboardFilter('year', this)">Año</button>
+              <div class="chart-tabs" id="dashboardFilterTabs" style="flex-wrap:wrap; gap:6px;">
+                <button class="chart-tab" onclick="setDashboardFilter('today', this)">Hoy</button>
+                <button class="chart-tab" onclick="setDashboardFilter('last7', this)">Últimos 7 días</button>
+                <button class="chart-tab" onclick="setDashboardFilter('last30', this)">Últimos 30 días</button>
+                <button class="chart-tab" onclick="setDashboardFilter('thisWeek', this)">Esta semana</button>
+                <button class="chart-tab active" onclick="setDashboardFilter('month', this)">Este mes</button>
+                <button class="chart-tab" onclick="setDashboardFilter('lastMonth', this)">Mes anterior</button>
+                <button class="chart-tab" onclick="setDashboardFilter('year', this)">Este año</button>
                 <button class="chart-tab" onclick="setDashboardFilter('all', this)">Todo</button>
                 <button class="chart-tab" onclick="setDashboardFilter('custom', this)">📅 Personalizado</button>
               </div>
               <!-- Custom date range picker (hidden by default) -->
               <div id="customDateRange"
-                style="display:none; margin-top:12px; display:none; gap:12px; align-items:center; flex-wrap:wrap;">
+                style="display:none; margin-top:12px; gap:12px; align-items:center; flex-wrap:wrap;">
                 <label style="font-size:13px; color:var(--text-muted);">Desde:</label>
-                <input type="date" id="dashFilterFrom" class="form-input"
-                  style="width:auto; padding:8px 12px; font-size:13px;">
+                <input type="text" id="dashFilterFrom" class="form-input" placeholder="📅 Seleccionar fecha"
+                  style="width:160px; padding:8px 12px; font-size:13px; cursor:pointer;" readonly>
                 <label style="font-size:13px; color:var(--text-muted);">Hasta:</label>
-                <input type="date" id="dashFilterTo" class="form-input"
-                  style="width:auto; padding:8px 12px; font-size:13px;">
+                <input type="text" id="dashFilterTo" class="form-input" placeholder="📅 Seleccionar fecha"
+                  style="width:160px; padding:8px 12px; font-size:13px; cursor:pointer;" readonly>
                 <button class="btn btn-primary" style="padding:8px 16px; font-size:13px;"
                   onclick="applyCustomDateFilter()">Aplicar</button>
               </div>
